@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bigcommerce-mcp-server"
+version = "1.0.0"
+description = "Model Context Protocol server for BigCommerce API documentation"
+authors = [
+    {name = "BigCommerce Developer", email = "developer@bigcommerce.com"}
+]
+license = {text = "MIT"}
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+dependencies = [
+    "mcp>=1.0.0",
+    "pyyaml>=6.0",
+    "markdown>=3.4.0",
+    "python-frontmatter>=1.0.0",
+    "whoosh>=2.7.4",
+    "aiofiles>=23.0.0",
+    "pydantic>=2.0.0",
+    "click>=8.0.0",
+]
+
+[project.scripts]
+bigcommerce-mcp-server = "src.server:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"] 
