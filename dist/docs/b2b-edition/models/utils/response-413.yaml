@@ -1,0 +1,23 @@
+title: response-413
+type: object
+description: 'Request Entity Too Large. In normal conditions, the bulk create or update method supports 10 entities in one request.'
+x-examples:
+  example-1:
+    code: 413
+    meta:
+      message: Request Entity Too Large
+    data: {}
+properties:
+  code:
+    type: number
+    example: 413
+  meta:
+    type: object
+    properties:
+      message:
+        type: string
+        example: Request Entity Too Large
+        description: Response message
+  data:
+    type: object
+x-internal: false

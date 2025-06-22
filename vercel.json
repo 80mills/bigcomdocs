@@ -1,0 +1,53 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/mcp.ts",
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": [
+          "docs/**",
+          "reference/**",
+          "models/**",
+          "src/**"
+        ],
+        "maxLambdaSize": "50mb"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/mcp",
+      "dest": "/api/mcp.ts",
+      "headers": {
+        "Cache-Control": "s-maxage=300, stale-while-revalidate=600"
+      }
+    },
+    {
+      "src": "/health",
+      "dest": "/api/health.ts",
+      "headers": {
+        "Cache-Control": "s-maxage=60, stale-while-revalidate=300"
+      }
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/api/mcp.ts"
+    }
+  ],
+  "functions": {
+    "api/mcp.ts": {
+      "maxDuration": 30,
+      "memory": 1024
+    },
+    "api/health.ts": {
+      "maxDuration": 5,
+      "memory": 256
+    }
+  },
+  "env": {
+    "NODE_ENV": "production"
+  },
+  "regions": ["iad1", "sfo1"],
+  "framework": null
+} 

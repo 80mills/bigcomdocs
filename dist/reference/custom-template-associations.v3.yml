@@ -1,0 +1,425 @@
+openapi: '3.0.3'
+info:
+  title: Custom Template Associations
+  version: ''
+  description: |-
+    Associate a Stencil themeʼs custom templates with products, categories, brands, and pages.
+
+    ## Creating template associations
+
+    To create a template association, use the [Upsert custom template associations](/docs/rest-content/custom-template-associations#upsert-custom-template-associations) endpoint
+
+    ## Entity IDs
+
+    The value of the entity ID is the ID property for the given entity. For example, a category entity ID is the `id` property for the particular category object you want to act upon.
+
+    To get the entity IDs for categories, products, and brands, use the [Get categories](/docs/rest-catalog/category-trees/categories#get-all-categories), [Get products](/docs/rest-catalog/products#get-all-products), and [Get brands](/docs/rest-catalog/brands#get-all-brands) endpoints, respectively.
+
+    To get the entity ID for a page, use the [Get pages](/docs/rest-content/pages#get-pages) endpoint.
+
+    ## Getting available templates
+
+    To get a list of available custom templates for each entity type, send a request to the [Get all themes](/docs/rest-content/themes#get-all-themes) endpoint, then use the `variation.uuid` property as the path parameter in a request to the [Get custom templates](/docs/rest-content/themes/theme-custom-templates#get-custom-templates) endpoint.
+
+    To get the version UUID for an active theme, use the [Get a channel active theme](/docs/rest-management/channels/channel-active-theme#get-a-channel-active-theme) endpoint.
+
+    ## Resources
+
+    * [Upsert custom template associations](/docs/rest-content/custom-template-associations#upsert-custom-template-associations)
+    * [Get categories](/docs/rest-catalog/category-trees/categories#get-all-categories)
+    * [Get products](/docs/rest-catalog/products#get-all-products)
+    * [Get brands](/docs/rest-catalog/brands#get-all-brands)
+    * [Get pages](/docs/rest-content/pages#get-pages)
+    * [Get all themes](/docs/rest-content/themes#get-all-themes)
+    * [Get custom templates](/docs/rest-content/themes/theme-custom-templates#get-custom-templates) endpoint.
+    * [Get a channel active theme](/docs/rest-management/channels/channel-active-theme#get-a-channel-active-theme)
+
+  termsOfService: 'https://www.bigcommerce.com/terms'
+  contact:
+    name: BigCommerce
+    url: 'https://www.bigcommerce.com'
+    email: support@bigcommerce.com  
+servers:
+  - url: 'https://api.bigcommerce.com/stores/{store_hash}/v3'
+    variables:
+      store_hash:
+        default: store_hash
+        description: Permanent ID of the BigCommerce store.
+    description: BigCommerce API Gateway
+security:
+  - X-Auth-Token: []
+tags:
+  - name: Custom Template Associations
+paths:
+  '/storefront/custom-template-associations':
+    parameters:
+      - $ref: '#/components/parameters/Accept'
+    get:
+      summary: Get Custom Template Associations
+      tags:
+        - Custom Template Associations
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CustomTemplateAssociation'
+                  meta:
+                    $ref: '#/components/schemas/MetaPaginationObject'
+              examples:
+                example-1:
+                  value:
+                    data:
+                      - id: 1
+                        channel_id: 1
+                        entity_type: product
+                        entity_id: 123
+                        file_name: custom-product-1.html
+                      - id: 2
+                        channel_id: 12345
+                        entity_type: page
+                        entity_id: 123
+                        file_name: custom-page.html
+                    meta:
+                      pagination:
+                        total: 246
+                        count: 5
+                        per_page: 5
+                        current_page: 1
+                        total_pages: 50
+                        links:
+                          next: '?limit=5&page=2'
+                          current: '?limit=5&page=1'
+      parameters:
+        - $ref: '#/components/parameters/ChannelIdQuery'
+        - $ref: '#/components/parameters/EntityIdInQuery'
+        - $ref: '#/components/parameters/TypeQuery'
+        - $ref: '#/components/parameters/LimitQuery'
+        - $ref: '#/components/parameters/PageQuery'
+        - $ref: '#/components/parameters/IsValidQuery'
+      description: Get a collection of the storeʼs custom template associations across all storefronts.
+      operationId: getCustomTemplateAssociations
+    put:
+      summary: Upsert Custom Template Associations
+      tags:
+        - Custom Template Associations
+      responses:
+        '200':
+          description: Success response for batch upsert of custom template associations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {}
+                additionalProperties: true
+        '422':
+          description: Error response for batch PUT of Custom template associations. Includes the errors for each reference ID.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      parameters:
+        - $ref: '#/components/parameters/ContentType'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: array
+              uniqueItems: true
+              maxItems: 100
+              minItems: 1
+              items:
+                $ref: '#/components/schemas/CustomTemplateAssociationUpsert'
+            examples:
+              example-1:
+                value:
+                  - channel_id: 1
+                    entity_type: brand
+                    entity_id: 123
+                    file_name: custom-brand-1.html
+                  - channel_id: 12345
+                    entity_type: page
+                    entity_id: 123
+                    file_name: custom-page.html
+                  - channel_id: 67543
+                    entity_type: product
+                    entity_id: 12
+                    file_name: custom-product-1.html
+        description: ''
+      description: 'Upsert new custom template associations data across all storefronts. If an existing record is found for the combination of channel ID, entity ID, and type, the existing record will be overwritten with the new template.'
+      operationId: upsertCustomTemplateAssociations
+    delete:
+      summary: Delete Custom Template Associations
+      tags:
+        - Custom Template Associations
+      responses:
+        '204':
+          description: No Content
+      parameters:
+        - $ref: '#/components/parameters/IdInQuery'
+        - $ref: '#/components/parameters/ChannelIdQuery'
+        - $ref: '#/components/parameters/TypeQuery'
+        - $ref: '#/components/parameters/EntityIdInQuery'
+      description: Delete custom template associations. At least one query parameter must be used.
+      operationId: deleteCustomTemplateAssociations
+components:
+  schemas:
+    Error:
+      type: object
+      properties:
+        status:
+          type: integer
+        message:
+          type: string
+      x-internal: false
+    ErrorResponse400:
+      type: object
+      properties:
+        schema:
+          $ref: '#/components/schemas/Error'
+      x-internal: false
+    ErrorResponse404:
+      type: object
+      properties:
+        schema:
+          $ref: '#/components/schemas/Error'
+      x-internal: false
+    ErrorResponse409:
+      type: object
+      properties:
+        schema:
+          $ref: '#/components/schemas/Error'
+      x-internal: false
+    ErrorResponse422:
+      type: object
+      properties:
+        schema:
+          $ref: '#/components/schemas/Error'
+      x-internal: false
+    MetaPaginationObject:
+      type: object
+      properties:
+        pagination:
+          type: object
+          properties:
+            total:
+              type: integer
+              example: 246
+              minimum: 0
+            count:
+              type: integer
+              example: 5
+              minimum: 0
+            per_page:
+              type: integer
+              example: 5
+              minimum: 0
+            current_page:
+              type: integer
+              example: 1
+              minimum: 1
+            total_pages:
+              type: integer
+              example: 50
+              minimum: 0
+            links:
+              type: object
+              properties:
+                next:
+                  type: string
+                  example: '?limit=5&page=2'
+                current:
+                  type: string
+                  example: '?limit=5&page=1'
+      x-internal: false
+    DetailedErrors:
+      type: object
+      properties: {}
+      additionalProperties:
+        type: string
+      x-internal: false
+    BaseError:
+      type: object
+      description: |
+        Error payload for the BigCommerce API.
+      properties:
+        status:
+          description: |
+            The HTTP status code.
+          type: integer
+        title:
+          description: |
+            The error title describing the particular error.
+          type: string
+        type:
+          type: string
+        instance:
+          type: string
+      x-internal: false
+    ErrorResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseError'
+        - type: object
+          properties:
+            errors:
+              $ref: '#/components/schemas/DetailedErrors'
+      x-internal: false
+    CustomTemplateAssociation:
+      title: CustomTemplateAssociation
+      type: object
+      properties:
+        id:
+          type: integer
+        channel_id:
+          type: integer
+        entity_type:
+          type: string
+          enum:
+            - product
+            - category
+            - brand
+            - page
+        entity_id:
+          type: integer
+        file_name:
+          type: string
+          example: custom-product-1.html
+        is_valid:
+          type: boolean
+          description: An invalid file name does not match with an existing custom layout file in the currently active theme for the channel. When an association is invalid the store will fallback to using the default for that entity type.
+        date_created:
+          type: string
+        date_modified:
+          type: string
+      x-internal: false
+    CustomTemplateAssociationUpsert:
+      title: CustomTemplateAssociation
+      type: object
+      properties:
+        channel_id:
+          type: integer
+        entity_type:
+          type: string
+          enum:
+            - product
+            - category
+            - brand
+            - page
+        entity_id:
+          type: integer
+        file_name:
+          type: string
+      required:
+        - channel_id
+        - entity_type
+        - entity_id
+        - file_name
+      x-internal: false
+  parameters:
+    Accept:
+      name: Accept
+      in: header
+      required: true
+      description: 'The [MIME type](https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types) of the response body.'
+      schema:
+        type: string
+        default: 'application/json'
+    ContentType:
+      name: Content-Type
+      in: header
+      required: true
+      description: 'The [MIME type](https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types) of the request body.'
+      schema:
+        type: string
+        default: 'application/json'
+    IdInQuery:
+      name: 'id:in'
+      description: A comma-separated string that specifies a list of association IDs to delete.
+      style: form
+      explode: false
+      schema:
+        type: array
+        items:
+          type: integer
+      in: query
+    ChannelIdQuery:
+      name: channel_id
+      description: Return results or act upon only template associations in the specified channel.
+      schema:
+        type: integer
+      in: query
+      required: false
+    EntityIdInQuery:
+      name: 'entity_id:in'
+      description: |-
+        A comma-separated list of entity IDs to return or act upon. Must be used together with the `type` filter. Currently, all supported entities have integer-type IDs. 
+      schema:
+        type: array
+        items:
+          type: integer
+      style: form
+      explode: false
+      in: query
+    TypeQuery:
+      name: type
+      description: Filter associations by type.
+      schema:
+        type: string
+        enum:
+          - product
+          - category
+          - brand
+          - page
+      in: query
+    LimitQuery:
+      name: limit
+      description: Number of results to return per page.
+      schema:
+        type: integer
+      in: query
+      required: false
+    PageQuery:
+      name: page
+      description: Which page number to return, based on the limit value. Used to paginate large collections.
+      schema:
+        type: integer
+      in: query
+    IsValidQuery:
+      name: is_valid
+      description: Optional toggle to filter for exclusively valid or invalid associations entries. An invalid entry is one where its file name does not match up to an existing custom layout file in the currently active theme for the channel.
+      schema:
+        type: boolean
+      in: query
+      required: false
+  securitySchemes:
+    X-Auth-Token:
+      name: X-Auth-Token
+      description: |-
+        ### OAuth scopes
+
+        | UI Name | Permission | Parameter |
+        |:--------|:-----------|:----------|
+        | Themes |Read-only|`store_themes_read_only`|
+        | Themes |Manage|`store_themes_manage`|
+
+        ### Authentication header
+        
+        | Header | Argument | Description |
+        |:-------|:---------|:------------|
+        | `X-Auth-Token` | `access_token` | For more about API accounts that generate `access_token`s, see our [Guide to API Accounts](/docs/start/authentication/api-accounts). |
+        
+        ### Further reading
+        
+        For example requests and more information about authenticating BigCommerce APIs, see [Authentication and Example Requests](/docs/start/authentication#x-auth-token-header-example-requests).
+        
+        For more about BigCommerce OAuth scopes, see our [Guide to API Accounts](/docs/start/authentication/api-accounts#oauth-scopes).
+        
+        For a list of API status codes, see [API Status Codes](/docs/start/about/status-codes).
+      type: apiKey
+      in: header

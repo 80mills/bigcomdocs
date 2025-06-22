@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional, Sequence
 from mcp.server import Server
 from mcp.server.models import InitializationOptions
 from mcp.server.stdio import stdio_server
+from mcp.server import NotificationOptions
 from mcp.types import (
     Resource,
     Tool,
@@ -36,10 +37,10 @@ class BigCommerceMCPServer:
     
     def __init__(self, docs_path: Path):
         self.docs_path = docs_path
-        self.config = Config()
+        self.config = Config(docs_path=docs_path)
         self.server = Server("bigcommerce-docs")
         
-        # Initialize parsers
+        # Initialize parsers with correct paths
         self.openapi_parser = OpenAPIParser(docs_path / "reference")
         self.mdx_parser = MDXParser(docs_path / "docs")
         self.schema_parser = SchemaParser(docs_path / "models")
@@ -185,6 +186,34 @@ class BigCommerceMCPServer:
                         },
                         "required": ["order_data"]
                     }
+                ),
+                Tool(
+                    name="build_http_request",
+                    description="Build a complete HTTP request for BigCommerce API with examples in multiple languages",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "api_name": {"type": "string", "description": "Name of the API (e.g., 'catalog', 'orders', 'customers')"},
+                            "endpoint_path": {"type": "string", "description": "API endpoint path (e.g., '/catalog/products')"},
+                            "method": {"type": "string", "description": "HTTP method", "enum": ["GET", "POST", "PUT", "DELETE", "PATCH"]},
+                            "parameters": {"type": "object", "description": "Query parameters and path parameters"},
+                            "body": {"type": "object", "description": "Request body for POST/PUT/PATCH requests"},
+                            "auth_type": {"type": "string", "description": "Authentication type", "enum": ["bearer", "basic"], "default": "bearer"}
+                        },
+                        "required": ["api_name", "endpoint_path", "method"]
+                    }
+                ),
+                Tool(
+                    name="generate_api_client",
+                    description="Generate complete API client code for a BigCommerce API in Python, JavaScript, or cURL",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "api_name": {"type": "string", "description": "Name of the API to generate client for"},
+                            "language": {"type": "string", "description": "Programming language", "enum": ["python", "javascript", "curl"], "default": "python"}
+                        },
+                        "required": ["api_name"]
+                    }
                 )
             ])
             
@@ -297,6 +326,10 @@ class BigCommerceMCPServer:
                     result = await self.schema_tools.get_schema(**arguments)
                 elif name == "search_schemas":
                     result = await self.schema_tools.search_schemas(**arguments)
+                elif name == "build_http_request":
+                    result = await self.api_tools.build_http_request(**arguments)
+                elif name == "generate_api_client":
+                    result = await self.api_tools.generate_api_client(**arguments)
                 else:
                     raise ValueError(f"Unknown tool: {name}")
                 
@@ -353,7 +386,7 @@ class BigCommerceMCPServer:
                     server_name="bigcommerce-docs",
                     server_version="1.0.0",
                     capabilities=self.server.get_capabilities(
-                        notification_options=None,
+                        notification_options=NotificationOptions(),
                         experimental_capabilities=None,
                     ),
                 ),

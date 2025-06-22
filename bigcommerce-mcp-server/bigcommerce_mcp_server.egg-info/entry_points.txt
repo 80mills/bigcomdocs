@@ -1,0 +1,2 @@
+[console_scripts]
+bigcommerce-mcp-server = src.server:main

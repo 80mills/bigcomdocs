@@ -1,30 +1,76 @@
 {
-  "name": "mdx-linter-devdocs",
+  "name": "bigcommerce-mcp-server-ts",
   "version": "1.0.0",
-  "description": "Lints and otherwise helps improve DevDocs in MDX format.",
-  "main": "index.js",
-  "directories": {
-    "example": "examples"
+  "description": "BigCommerce MCP Server optimized for Vercel deployment",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc && npm run copy-files",
+    "copy-files": "cp -r docs dist/ && cp -r reference dist/ && cp -r models dist/",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "format": "prettier --write src/**/*.ts api/**/*.ts",
+    "format:check": "prettier --check src/**/*.ts api/**/*.ts",
+    "clean": "rm -rf dist",
+    "vercel-build": "npm run build",
+    "deploy": "vercel --prod",
+    "health-check": "curl -f http://localhost:3000/health || exit 1"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^0.5.0",
+    "fuse.js": "^7.0.0",
+    "gray-matter": "^4.0.3",
+    "yaml": "^2.3.4",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "@vercel/node": "^3.0.0",
+    "eslint": "^8.0.0",
+    "jest": "^29.0.0",
+    "prettier": "^3.0.0",
+    "ts-jest": "^29.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
   },
   "engines": {
-    "node": ">= 18.0.0"
-  },
-  "scripts": {
-    "lint": "eslint ./docs ./archive --ext mdx --max-warnings 0"
-  },
-  "repository": {
-    "type": "git",
-    "url": "null"
+    "node": ">=18.0.0"
   },
   "keywords": [
-    "lint",
-    "mdx",
-    "eslint",
-    "docs-as-code"
+    "mcp",
+    "bigcommerce",
+    "api",
+    "documentation",
+    "vercel",
+    "serverless"
   ],
-  "devDependencies": {
-    "eslint": "^8.34.0",
-    "eslint-plugin-mdx": "^2.0.5"
+  "author": "BigCommerce Developer",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bigcommerce/bigcomdocs.git"
   },
-  "author": "Matthew Volk"
+  "homepage": "https://developer.bigcommerce.com",
+  "bugs": {
+    "url": "https://github.com/bigcommerce/bigcomdocs/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist/**/*",
+    "api/**/*",
+    "docs/**/*",
+    "reference/**/*",
+    "models/**/*",
+    "README.md",
+    "LICENSE"
+  ]
 }

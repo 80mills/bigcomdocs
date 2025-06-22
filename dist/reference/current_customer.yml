@@ -1,0 +1,99 @@
+openapi: '3.0.1'
+info:
+  title: Current Customer
+  description: |-
+    Identify signed-in customers securely by requesting and decoding a BigCommerce-generated JWT.
+
+    ## Authentication
+
+    Authentication consist of two parts; first, send the client ID of an app-level API account as a query parameter with your request. No scopes are required. When you receive a response, use the same API account's client secret to decode the JWT that BigCommerce returns.
+
+    [Learn more about the Current Customer API](/docs/start/authentication/current-customer).
+
+    For info about API accounts, see our [Guide to API accounts](/docs/start/authentication/api-accounts).
+        
+    For info about authenticating BigCommerce APIs, see [Authentication and example requests](/docs/start/authentication#client-id).
+
+    > #### Note
+    > * Substitute your storefront domain for `yourstore.example.com`. 
+    > * The Send a Test Request feature is not currently supported for this endpoint.
+  termsOfService: 'https://www.bigcommerce.com/terms'
+  contact:
+    name: BigCommerce
+    url: 'https://www.bigcommerce.com'
+    email: support@bigcommerce.com
+  version: ''
+servers:
+  - url: 'https://{store_domain}'
+    variables:
+      store_domain:
+        default: your_store.example.com
+        description: 'The [URL authority](https://developer.mozilla.org/en-US/docs/Learn/Common_questions/Web_mechanics/What_is_a_URL#authority) of the storefront.'
+tags:
+  - name: Current Customers
+paths:
+  /customer/current.jwt:
+    parameters:
+      - $ref: '#/components/parameters/Accept'
+    get:
+      tags:
+        - Current Customers
+      summary: Get Current Customer
+      description: |-
+        Identify signed-in customers securely by requesting and decoding a BigCommerce-generated JWT.
+
+        The response body will contain a JWT.
+
+        > #### Note
+        > The Send a Test Request feature is not currently supported for this endpoint.
+      operationId: getCurrentCustomer
+      parameters:
+        - $ref: '#/components/parameters/AppClientId'
+      responses:
+        '200':
+          description: |-
+            A JWT to decode using the client secret that corresponds with the app client ID you sent as a query parameter. 
+
+            After you decode the JWT, the payload resembles the following:
+
+            ```json
+              {
+                "customer": {
+                  "id": 4927,
+                  "email": "john.doe@gmail.com",
+                  "group_id": "6",
+                },
+                "iss": "bc/apps",
+                "sub": "abc123",
+                "iat": 1480831863,
+                "exp": 1480832763,
+                "version": 1,
+                "aud": "6sv16tfx3j5gsopm42ss5dd67g2srvq",
+                "application_id": "6sv16tasdgr2b5hs5dd67g2srvq",
+                "store_hash": "abc123",
+                "operation": "current_customer"
+              }
+            ```
+          content:
+            application/json:
+              schema:
+                type: string
+                format: jwt
+components: 
+  parameters:
+    Accept:
+      name: Accept
+      in: header
+      required: true
+      description: 'The [MIME type](https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types) of the response body.'
+      schema:
+        type: string
+        default: 'application/json'
+    AppClientId:
+      name: app_client_id
+      in: query
+      required: true
+      description: This is the client ID of an app-level API account you generate when you create an app in the Developer Portal.
+      schema:
+        type: string
+

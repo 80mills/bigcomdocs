@@ -1,0 +1,124 @@
+openapi: '3.0.1'
+servers:
+  - url: 'https://{store_domain}/api/storefront'
+    variables:
+      store_domain:
+        default: your_store.example.com
+        description: 'The [URL authority](https://developer.mozilla.org/en-US/docs/Learn/Common_questions/Web_mechanics/What_is_a_URL#authority) of the storefront.'
+info:
+  title: Storefront Cookie Consent
+  description: |-
+    Specify shopper cookie consent preferences on BigCommerce-hosted storefronts. To work with headless storefronts, use the [GraphQL Storefront API](/graphql-storefront/reference).
+    
+    The REST Storefront API uses [CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS) headers for authentication, and therefore has no required scopes. You do not need to send any BigCommerce-specific tokens with your requests to these endpoints.
+        
+    For info about authenticating BigCommerce APIs, see [Authentication and Example Requests](/docs/start/authentication#same-origin-cors-authentication).
+  version: Storefront
+  termsOfService: 'https://www.bigcommerce.com/terms'
+  contact:
+    name: BigCommerce
+    url: 'https://www.bigcommerce.com'
+    email: support@bigcommerce.com
+tags:
+  - name: Consent
+paths:
+  /consent:
+    parameters:
+      - $ref: '#/components/parameters/Accept'
+      - $ref: '#/components/parameters/ContentType'
+    post:
+      summary: Set Cookie Consent Preferences
+      tags:
+        - Consent
+      responses:
+        '200':
+          description: Consent Settings Saved
+        '400':
+          description: Invalid input
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsentPreferences'
+            examples:
+              Example:
+                value:
+                  allow:
+                    - 1
+                    - 2
+                  deny:
+                    - 3
+        description: 'Data sent to the [Update customer consent](/docs/rest-management/customers/customer-consent#update-customer-consent) endpoint when creating a customer during checkout.'
+        required: true
+      description: |
+        Sets the status of a customer's consent to allow data collection by cookies and scripts according to the following consent categories:
+
+          1. Analytics — These cookies provide statistical information on site usage so the store owner can improve the website over time.  
+          2. Functional — These cookies enable enhanced functionality, such as videos and live chat. If a shopper does not allow these, then some or all of these functions may not work properly. 
+          3. Targeting; Advertising — These cookies allow merchants to create profiles or personalize content to enhance users' shopping experience.
+          
+          
+        This endpoint only works if the cookie consent feature is enabled. It is assumed the shopper has not consented to anything until a value is explicitly set. The request body must be populated with a complete set of allowed and denied categories.
+
+        Once set, consent preferences will be saved as a cookie for guest shoppers. Consent preferences will be persisted to a shopper's account to be used for future sessions once they have logged in. Consent preferences can also be managed using the [Update customer consent](/docs/rest-management/customers/customer-consent#update-customer-consent) endpoint.   
+
+        > #### Note
+        > * Substitute your storefront domain for `yourstore.example.com`. 
+      operationId: postCookieConsent
+components:
+  schemas:
+    ConsentPreferences:
+      type: object
+      title: ConsentPreferences
+      description: |-
+        List of allowed and denied consent categories. Must be populated with a complete set of allowed and denied categories.
+
+        Configurable categories are:
+
+        1 - Analytics
+        2 - Functional
+        3 - Targeting; Advertising
+
+        For further definition of these categories, see [Scripts API](/docs/integrations/scripts).
+      properties:
+        allow:
+          type: array
+          description: 'Explicitly allowed consent categories. Allowed values are 1, 2, 3.'
+          items:
+            type: integer
+            enum:
+              - 1
+              - 2
+              - 3
+            example: 3
+        deny:
+          type: array
+          description: 'Denied consent categories. Allowed values are 2, 3, 4.'
+          items:
+            type: integer
+            enum:
+              - 1
+              - 2
+              - 3
+            example: 2
+      required:
+        - allow
+        - deny
+      x-internal: false
+  parameters:
+    Accept:
+      name: Accept
+      in: header
+      required: true
+      description: 'The [MIME type](https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types) of the response body.'
+      schema:
+        type: string
+        default: 'application/json'
+    ContentType:
+      name: Content-Type
+      in: header
+      required: true
+      description: 'The [MIME type](https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types) of the request body.'
+      schema:
+        type: string
+        default: 'application/json'

@@ -1,0 +1,87 @@
+# Rendering HTML with Ajax
+
+Stencil allows you to render dynamic components on the fly. For example, note this default code in <span class="fp">templates/components/products/quick-view.html</span> (note also this file name, which Handlebars will reference later in this example):
+
+
+```handlebars filename="templates/components/products/quick-view.html" showLineNumbers copy
+<div class="modal-body quickView">
+    {{> components/products/product-view schema=false}}
+</div>
+```
+
+To render a different template, you would instead reference that template’s file name. For example, assume that you want to substitute a custom template that you’ve named: `templates/components/products/quicker-view.html`.
+
+This next code block is from the Stencil default theme’s `/assets/js/theme/global/quick-view.js` file. Note the `quicker-view.html` statements brought in to reference the new file name:
+
+
+```js filename="/assets/js/theme/global/quick-view.js" showLineNumbers copy
+let $modal = $('#modal'),
+  $modalContent = $('.modal-content', $modal),
+  $modalOverlay = $('.loadingOverlay', $modal),
+  modalModifierClasses = 'modal--large';
+
+$('body').on('click', '.quickview', (event) => {
+  let productId = $(event.currentTarget).data('product-id');
+
+  event.preventDefault();
+
+  // clear the modal
+  $modalContent.html('');
+  $modalOverlay.show();
+
+  // open modal
+  $modal.foundation('reveal', 'open');
+
+	//quicker-view.html statement, replacing the standard template's quick-view.html template
+  utils.api.product.getById(productId, {template: 'products/quicker-view'}, function done(err, response) {
+      $modalOverlay.hide();
+      $modalContent.html(response);
+
+      return new ProductDetails($modalContent, context);
+  });
+});
+```
+
+## Handlebar partial blocks for Stencil
+
+Stencil supports handlebar partial blocks to help you create reusable templates with dynamic content. You can define a partial block using the following use cases:
+
+```handlebars
+{{#> components/ul }}
+    {{> components/li text="Item 1" link="item_link_1"}}
+    {{> components/li text="Item 2" link="item_link_2"}}
+    {{> components/li text="Item 3" link="item_link_3"}}
+{{/components/ul}}
+```
+**component/ul**
+
+```
+<ul>
+    {{> @partial-block }}
+</ul>
+```
+
+**component/li**
+
+```
+<li>
+    <a href="{{link}}">{{text}}</a>
+</li>
+```
+
+**Result**:
+
+```
+<ul>
+    <li>
+       <a href="item_link_1">Item 1</a>
+    </li>
+    <li>
+       <a href="item_link_2">Item 2</a>
+    </li>
+    <li>
+       <a href="item_link_3">Item 3</a>
+    </li>
+</ul>
+```
+Content placed inside the block will replace the partial's default content, allowing you to inject custom content while preserving the partial’s structure and logic. This format makes it easier to reuse templates with varying content across your application.

@@ -1,179 +1,219 @@
 # BigCommerce MCP Server
 
-A Model Context Protocol (MCP) server that provides AI models with access to BigCommerce API documentation, enabling intelligent assistance for developers working with BigCommerce APIs.
+A Model Context Protocol (MCP) server that provides intelligent access to BigCommerce API documentation, specifications, and schemas. This server enables AI assistants to understand and recommend the most appropriate BigCommerce APIs for specific use cases.
 
 ## Features
 
-- **API Specification Access**: Search and browse all BigCommerce OpenAPI specifications
-- **Documentation Search**: Full-text search across BigCommerce documentation (MDX files)
-- **Schema Exploration**: Access to JSON schemas and data models
-- **Code Examples**: Extract and search code examples from documentation
-- **Intelligent Search**: Contextual search with relevance scoring
-
-## Available Tools
-
-### API Tools
-- `search_api_endpoints` - Search for API endpoints across all BigCommerce APIs
-- `get_api_spec` - Get complete OpenAPI specification for a specific API
-- `get_endpoint_details` - Get detailed information about a specific API endpoint
-- `list_api_categories` - List all available API categories
-
-### Documentation Tools
-- `search_documentation` - Search across all BigCommerce documentation
-- `get_documentation_section` - Get specific documentation section content
-- `list_documentation_topics` - List available documentation topics and sections
-- `get_code_examples` - Get code examples for specific use cases
-
-### Schema Tools
-- `get_schema` - Get JSON schema for BigCommerce data models
-- `search_schemas` - Search for schemas by name or properties
+- **Intelligent API Recommendation**: Automatically suggests the best BigCommerce APIs based on user intent and use cases
+- **Comprehensive Documentation Search**: Search across all BigCommerce documentation with semantic understanding
+- **OpenAPI Specification Access**: Full access to BigCommerce API specifications and endpoint details
+- **Schema Management**: Access to JSON schemas and data models
+- **Agentic Capabilities**: Understands business context and provides intelligent guidance for:
+  - Product management and catalog operations
+  - Inventory management and bulk operations
+  - Order processing and fulfillment
+  - Customer management
+  - Pricing optimization
+  - Webhook setup and event handling
+  - Widget and content management
 
 ## Installation
 
-1. **Clone or set up the directory structure**:
-   ```bash
-   # Ensure you're in the bigcommerce docs repository
-   cd /path/to/bigcomdocs
-   ```
+1. Clone the repository:
+```bash
+git clone <repository-url>
+cd bigcommerce-mcp-server
+```
 
-2. **Install dependencies**:
-   ```bash
-   cd bigcommerce-mcp-server
-   pip install -r requirements.txt
-   ```
+2. Install dependencies:
+```bash
+pip install -e .
+```
 
-3. **Install in development mode** (optional):
-   ```bash
-   pip install -e .
-   ```
+3. For development with testing:
+```bash
+pip install -e .[test]
+```
+
+## Configuration
+
+The server expects BigCommerce documentation to be organized in the following structure:
+
+```
+docs/
+├── reference/          # OpenAPI specifications (.yml files)
+├── docs/              # MDX documentation files
+└── models/            # JSON schema files
+```
 
 ## Usage
 
 ### Running the Server
 
-Run the MCP server from the BigCommerce documentation repository root:
-
 ```bash
-cd bigcommerce-mcp-server
-python -m src.server /path/to/bigcomdocs
+python -m src.server
 ```
 
-Or if you installed it as a package:
+### Using with MCP Clients
+
+The server provides the following tools:
+
+#### API Tools
+- `search_api_endpoints` - Search for API endpoints
+- `get_api_spec` - Get complete API specification
+- `get_endpoint_details` - Get detailed endpoint information
+- `list_api_categories` - List available API categories
+- `recommend_api_for_use_case` - Get intelligent API recommendations
+- `get_bulk_operation_guide` - Get guidance for bulk operations
+
+#### Documentation Tools
+- `search_documentation` - Search documentation content
+- `get_doc_section` - Get specific documentation sections
+- `list_topics` - List available documentation topics
+- `get_code_examples` - Extract code examples from documentation
+
+#### Schema Tools
+- `get_schema` - Get JSON schema definitions
+- `search_schemas` - Search schema content
+
+## Testing
+
+The project includes comprehensive tests for all components. Here's how to run them:
+
+### Quick Start
 
 ```bash
-bigcommerce-mcp-server /path/to/bigcomdocs
+# Run all tests
+python run_tests.py
+
+# Run with coverage
+python run_tests.py --coverage
+
+# Run specific test types
+python run_tests.py --type unit
+python run_tests.py --type integration
+
+# Verbose output
+python run_tests.py --verbose
 ```
 
-### Example Queries
+### Manual Testing
 
-Once connected to an MCP client, you can use queries like:
+```bash
+# Install test dependencies
+pip install -e .[test]
 
-- "Search for widget creation endpoints"
-- "Get the complete Orders API specification"
-- "Show me code examples for creating products"
-- "Find documentation about webhooks"
-- "Get the schema for product objects"
+# Run all tests
+pytest
 
-## Architecture
+# Run with coverage
+pytest --cov=src --cov-report=html
 
-The server consists of several components:
+# Run specific test files
+pytest tests/unit/test_api_tools.py
+pytest tests/integration/test_server.py
 
-### Parsers
-- **OpenAPIParser**: Parses OpenAPI YAML specifications
-- **MDXParser**: Parses MDX documentation files
-- **SchemaParser**: Parses JSON schema files
+# Run with verbose output
+pytest -v
+```
 
-### Indexers
-- **SearchIndexer**: Provides search functionality across all content
-- **ContentIndexer**: Manages content indexing for fast retrieval
+### Test Structure
 
-### Tools
-- **APITools**: Handles API-related queries
-- **DocumentationTools**: Manages documentation search and retrieval
-- **SchemaTools**: Provides schema access and search
+```
+tests/
+├── conftest.py              # Test configuration and fixtures
+├── unit/                    # Unit tests
+│   ├── test_api_tools.py    # API tools tests
+│   ├── test_documentation_tools.py  # Documentation tools tests
+│   └── test_schema_tools.py # Schema tools tests
+├── integration/             # Integration tests
+│   └── test_server.py       # Server integration tests
+└── fixtures/                # Test data and fixtures
+```
+
+### Test Coverage
+
+The test suite covers:
+- ✅ API tools functionality
+- ✅ Documentation tools functionality
+- ✅ Schema tools functionality
+- ✅ Server initialization and tool registration
+- ✅ Integration with real BigCommerce documentation
+- ✅ Performance and concurrent operations
+- ✅ Error handling and edge cases
+
+### Running Tests with Real Data
+
+The integration tests can run against the actual BigCommerce documentation:
+
+```bash
+# Tests will automatically use the docs/ directory if available
+pytest tests/integration/test_server.py::TestMCPServerWithRealData
+```
 
 ## Development
 
 ### Project Structure
 
 ```
-bigcommerce-mcp-server/
-├── src/
-│   ├── server.py              # Main MCP server
-│   ├── config.py             # Configuration
-│   ├── parsers/              # Content parsers
-│   ├── indexers/             # Search indexing
-│   ├── tools/                # MCP tools
-│   └── utils/                # Utilities
-├── requirements.txt          # Python dependencies
-├── pyproject.toml           # Project configuration
-└── README.md                # This file
+src/
+├── __init__.py
+├── config.py              # Configuration management
+├── server.py              # Main MCP server implementation
+├── indexers/              # Search and content indexing
+│   ├── content_indexer.py
+│   └── search_indexer.py
+├── parsers/               # File parsers
+│   ├── mdx_parser.py      # MDX documentation parser
+│   ├── openapi_parser.py  # OpenAPI specification parser
+│   └── schema_parser.py   # JSON schema parser
+├── tools/                 # MCP tools implementation
+│   ├── api_tools.py       # API-related tools
+│   ├── documentation_tools.py  # Documentation tools
+│   └── schema_tools.py    # Schema tools
+└── utils/                 # Utility functions
 ```
 
-### Adding New Features
+### Adding New Tests
 
-1. **New Parser**: Add parsers in `src/parsers/` for new content types
-2. **New Tools**: Implement new MCP tools in `src/tools/`
-3. **Enhanced Search**: Improve indexing in `src/indexers/`
+1. **Unit Tests**: Add to `tests/unit/` for testing individual components
+2. **Integration Tests**: Add to `tests/integration/` for testing component interactions
+3. **Fixtures**: Use `conftest.py` for shared test data and setup
 
-### Testing
+Example test structure:
+```python
+import pytest
+from src.tools.api_tools import APITools
 
-```bash
-# Basic functionality test
-python -c "from src.server import BigCommerceMCPServer; print('Import successful')"
-
-# Run with verbose logging
-PYTHONPATH=. python src/server.py --verbose
+class TestAPITools:
+    def test_search_endpoints(self, api_tools):
+        """Test searching for API endpoints."""
+        results = api_tools.search_endpoints("products")
+        assert "products" in results
+    
+    @pytest.mark.asyncio
+    async def test_async_operation(self, api_tools):
+        """Test async operations."""
+        result = await api_tools.some_async_method()
+        assert result is not None
 ```
 
-## Configuration
+### Continuous Integration
 
-The server can be configured through the `Config` class in `src/config.py`. Available options:
-
-- `docs_path`: Path to BigCommerce documentation
-- `cache_path`: Path for caching indexes
-- `max_search_results`: Maximum search results per query
-- `enable_semantic_search`: Enable/disable semantic search features
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Import Errors**: Ensure all dependencies are installed via `pip install -r requirements.txt`
-2. **Path Issues**: Make sure the docs path points to the BigCommerce documentation root
-3. **Permission Issues**: Ensure read access to documentation files
-
-### Logging
-
-Enable debug logging:
-
-```bash
-PYTHONPATH=. python -c "
-import logging
-logging.basicConfig(level=logging.DEBUG)
-from src.server import main
-import asyncio
-asyncio.run(main())
-"
-```
+The project is configured for CI/CD with:
+- Automated test running
+- Coverage reporting
+- Code quality checks
+- Integration testing with real documentation
 
 ## Contributing
 
 1. Fork the repository
 2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
+3. Add tests for new functionality
+4. Ensure all tests pass
 5. Submit a pull request
 
 ## License
 
-This project follows the same license as the BigCommerce documentation repository.
-
-## Future Enhancements
-
-- Advanced semantic search with embeddings
-- Real-time documentation updates
-- Interactive code generation
-- API testing capabilities
-- Multi-language support for examples
-- Caching improvements for better performance 
+MIT License - see LICENSE file for details. 

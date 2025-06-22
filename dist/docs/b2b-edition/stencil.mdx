@@ -1,0 +1,188 @@
+# B2B Edition for Stencil Themes (Legacy Experience)
+
+<Callout type="warning">
+  These instructions are for customizing B2B Edition’s legacy Stencil storefront experience. To learn more about custom development in B2B Edition’s Buyer Portal experience, see our [b2b-buyer-portal](https://github.com/bigcommerce/b2b-buyer-portal) repository in GitHub.
+</Callout>
+
+B2B Edition is BigCommerce's Enterprise business-to-business (B2B) solution that help businesses grow, streamline operations, and improve the experience for both their internal teams and their buyers.
+
+B2B Edition’s legacy Stencil storefront experience adds B2B buyer tools to your storefront by installing a modified Stencil theme. For a list of modified themes that are included with the legacy storefront experience, see [B2B Edition (Help Center)](https://support.bigcommerce.com/s/article/B2B-Edition).
+
+## Feature enhancements
+
+B2B Edition’s legacy experience offers multiple B2B feature enhancements to your BigCommerce store, including the following:
+
+- Client business management with Company accounts
+- Predefined B2B customer roles with storefront permissions
+- Shared shopping lists and "buy again" functionality
+- Sales representative enablement tools
+- Quote management
+- Invoice and payment management
+
+For a more complete list of B2B Edition feature enhancements, including features specific to the Buyer Portal experience, see our Help Center [B2B Edition's features](https://support.bigcommerce.com/s/article/B2B-Edition).
+
+## Legacy Stencil Themes versus the Buyer Portal
+
+The shopping frontend of B2B Edition's Stencil storefront experience runs on specially modified Stencil storefronts alone, whereas the [B2B Edition Buyer Portal](https://support.bigcommerce.com/s/article/B2B-Edition-Buyer-Functions) is supported in any Stencil theme, and it also can be used with non-Stencil storefronts. 
+
+The Buyer Portal uses the [Scripts API](/docs/integrations/scripts) to deploy a React app that accomplishes many of the same things as B2B Edition’s legacy experience. It is Stencil-compatible, but does not use Stencil's context or Handlebars theme objects.
+
+The Buyer Portal is also channel-aware and [MSF-optimized](/docs/integrations/apps/multi-storefront). The backend can manage B2B functionality on multiple storefronts, allowing you to create region- or brand-specific B2B experiences, or set up separate B2B and B2C storefronts.
+
+The Buyer Portal is automatically enabled on new B2B Edition stores by default. To learn more about the differences between the two experiences and how to upgrade a legacy store, see our Help Center article on [Migrating to the Buyer Portal Experience](https://support.bigcommerce.com/s/article/Buyer-Portal-Migration).
+
+## Installing and locating the app
+
+The B2B Edition backend settings are accessible in the **[B2B](https://login.bigcommerce.com/deep-links/manage/marketplace/apps/my-apps)** area of the store control panel. The client-facing portions of the app load dynamically with JavaScript.
+
+If your development sandbox or merchant store didn't come with B2B Edition pre-installed, reach out to your BigCommerce representative.
+
+## Customizing B2B Edition-optimized Stencil Themes
+
+With the legacy storefront experience, you can customize display text, styling, checkout configurations, and the placement of app elements. You can also access the lifecycle methods for many B2B Edition objects and inject your own JavaScript functions.
+
+Additionally, you can use the [B2B Edition API](https://developer.bigcommerce.com/b2b-edition/apis) to create, read, update, and delete items such as orders, companies, addresses, payments, sales reps, and Company users. This API allows you to build your own services or integrate B2B Edition with third-party business tools, such as Salesforce or Zendesk.
+
+This section details how to edit the DOM, CSS, and display text in a B2B Edition Stencil theme, and how to define JavaScript lifecycle methods. It assumes you are familiar with editing Stencil themes locally and pushing them to a sandbox or production store using the Stencil CLI.
+
+### Prerequisites for customizing B2B Edition
+
+- [Node.js 14+ and npm](https://nodejs.org/en/download/releases/)
+- The [Stencil CLI](/docs/storefront/stencil/cli/install)
+- A Stencil-scoped [API account access_token](/docs/storefront/stencil/cli/development-server#creating-store-level-api-accounts-for-stencil), to push your custom B2B Edition-optimized theme to a store
+- A text editor or IDE, such as [VS Code](https://visualstudio.microsoft.com)
+- Access to a BigCommerce store control panel with B2B Edition activated, and a user account with store owner permissions
+
+### Customizing page containers
+
+B2B Edition's Stencil storefront experience renders client-facing pages and elements, such as a Company’s quotes and invoices lists, by mounting fixed containers to BigCommerce themes using JavaScript. B2B Edition elements and containers are _B3 objects_. You can change the placement of select B3 elements by specifying the DOM node on which you want B2B Edition to mount the container.
+
+Use the following steps.
+
+1. Insert `window.b3themeConfig.useContainers = {}` into your theme's `assets/js/global.js` file. 
+2. Within `window.b3themeConfig.useContainers = {}`, create a property with the name of the B3 container as its key and the selector for the theme element on which it will mount as its value. 
+
+When done, the object will resemble the example below.
+
+```js filename="Example: Specify a custom mount node for the dashboard container" showLineNumbers copy
+window.b3themeConfig.useContainers = {
+ /* B3 will append the dashboard container to the first returned DOM node with a class of "page" that is a descendant of an element with the class of "container" */
+	'dashboard.container': '.container .page',
+}
+```
+
+For a list of B3 container names and their default placements, see the [B3 containers reference](https://developer.bundleb2b.net/storefront/containers.html).
+
+### Customizing styles
+
+You can customize the styling of many B3 elements using CSS, allowing you to improve cohesion between your B2B functionality and the rest of your storefront.
+
+To modify the styling of a B3 module, follow these steps:
+1. Insert `window.b3themeConfig.useStyles = {}` into your theme's `assets/js/global.js` file. 
+2. Within `window.b3themeConfig.useStyles = {}`, create a property with the name of the B3 element as its key and an object that defines the desired CSS styles as its value.
+
+<Callout type="info">
+  Because the CSS is written in a JavaScript object, two-word properties, like `background-color`, must be written with camel case syntax. For example, `backgroundColor: "red"`.
+</Callout>
+
+When done, the object will resemble the example below, where we added custom styling to the Trade Professional Application button for new Company accounts.
+
+```js filename="Example: Specify custom styles for the TPA button" showLineNumbers copy
+window.b3themeConfig.useStyles = {
+/* B3 will use the specified styles for the "Trade Professional Application" button that is appended to the secondary navigation menu */
+  'tpa.entryButton': {
+    fontFamily: 'Karla,Arial,Helvetica,sans-serif',
+    fontSize: '1rem',
+    listStyle: 'none',
+    boxSizing: 'border-box',
+    lineHeight: 'inherit',
+    transition: 'color .15s ease',
+    display: 'block',
+    color: '#333',
+    fontWeight: 700,
+    padding: '1rem .78571rem',
+    textDecoration: 'none',
+    textTransform: 'uppercase',
+  },
+};
+```
+
+For more on B3 element names and their styles, see the [B3 styles reference](https://developer.bundleb2b.net/storefront/styles.html).
+
+### Customizing display text
+
+You can customize display text for many B3 elements in the legacy storefront experience, such as buttons, headers, and labels from the theme files. This allows you to translate client-facing B2B features or reword them to align with your overall storefront experience.
+
+In the Buyer Portal experience, you can use [B2B Edition’s settings](https://support.bigcommerce.com/s/article/B2B-Edition-Settings) to upload a CSV file of text strings and reword or translate your Buyer Portal.
+
+To overwrite the default text that B2B Edition renders, follow these steps:
+
+1. Insert `window.b3themeConfig.useText = {}` into your theme's `assets/js/theme/global.js` file. 
+2. Within `window.b3themeConfig.useText = {}`, create a property for each element you would like to overwrite, using B3 element names as keys and strings containing the new display text as values.
+
+When done, the object will resemble the example below, where we adjusted the menu item text for the Quick Order Pad.
+
+```js filename="Example: Specify custom display text for the quick order button" showLineNumbers copy
+window.b3themeConfig.useText = {
+/* B3 will now use the call to action "Place Quick Order" instead of the default "Quick Order Pad" for the button that is appended to the secondary navigation menu */
+ 'nav.button.quickOrderPad': 'Place Quick Order',
+}
+```
+
+For B3 element names and their default text values, see the [B3 text reference](https://developer.bundleb2b.net/storefront/text.html).
+
+### Overwriting and injecting JavaScript
+
+B2B Edition has lifecycle methods for many modules that allow you to inject custom JavaScript functions at different times during page render. Each supported module has the following four global keys:
+
+| Key | Type | Default | Definition |
+|:----|:-----|:--------|:-----------|
+| overwrite | boolean | false | Specifies whether to overwrite B3 functions for the module. |
+| callback() | function | {} (no-op) | Calls all enclosed functions after all other B3 code has run, regardless of the value of `overwrite`. |
+| beforeMount() | function | {} (no-op) | Calls all enclosed functions before the module renders. |
+| mounted() | function | {} (no-op) | Calls all enclosed functions after the module has rendered. |
+
+To overwrite and/or inject custom functions for a supported B3 module, follow these steps:
+
+1. Insert `window.b3themeConfig.useJavaScript = {}` into your theme's `assets/js/global.js` file. 
+2. Within `window.b3themeConfig.useJavaScript = {}`, create a property for each of the modules you'd like to customize. Uses the module name as the key and an object that defines values for the global keys as its value.
+
+When done, your object will resemble the following example that demonstrates the call stack of each function.
+
+```js filename="Example: Specify lifecycle method values for the Quick Order Pad module" showLineNumbers copy
+window.b3themeConfig.useJavaScript = {
+  quickorderpad: {
+    overwrite: false,
+    callback() {
+      console.trace(`quickorderpad.callback() runs after all other quickorderpad functions`);
+    },
+    beforeMount() {
+      console.trace(`quickorderpad.beforeMount() runs before quickorderpad mounts`);
+    },
+    mounted() {
+      console.trace(`quickorderpad.mounted() runs after quickorderpad mounts`);
+    }
+  }
+}
+```
+
+In this example, the browser console logs display a different message at each stage of the Quick Order Pad’s lifecycle.
+
+![B3 console log output](https://storage.googleapis.com/bigcommerce-production-dev-center/images/b3_console_log_output.png)
+
+For a full list of available modules, see the [B3 JavaScript reference](https://developer.bundleb2b.net/storefront/js.html).
+
+## B2B Edition API
+
+Certain endpoints on B2B Edition Storefront API, such as [Create a Company](https://developer.bigcommerce.com/b2b-edition/apis/rest-storefront/company#create-a-company), can be performed anonymously, while others must be authenticated with a storefront authToken. You can find instructions on how to get a B2B Edition API token from the storefront context in the [B2B Edition authentication article](/b2b-edition/docs/authentication).
+
+For the complete list of B2B Edition API endpoints, see the [B2B Edition API Reference](/b2b-edition/apis).
+
+## Additional B2B Edition resources
+
+- [Quick Start](https://developer.bundleb2b.net/storefront/quick-start.html)
+- [B2B Edition API Reference](/b2b-edition/apis)
+- [RESTful APIs call](https://developer.bundleb2b.net/storefront/api-call.html)
+- [Customize display text](https://developer.bundleb2b.net/storefront/text.html)
+- [Customize page containers](https://developer.bundleb2b.net/storefront/containers.html)
+- [JavaScript overwrite and injection](https://developer.bundleb2b.net/storefront/js.html)

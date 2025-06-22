@@ -1000,4 +1000,322 @@ class APITools:
             
         except Exception as e:
             logger.error(f"Error optimizing order fulfillment: {e}")
-            return f"Error optimizing order fulfillment: {str(e)}" 
+            return f"Error optimizing order fulfillment: {str(e)}"
+    
+    async def build_http_request(self, api_name: str, endpoint_path: str, method: str, parameters: Optional[Dict] = None, body: Optional[Dict] = None, auth_type: str = "bearer") -> str:
+        """Build a complete HTTP request for BigCommerce API based on OpenAPI spec"""
+        try:
+            # Get the API spec and endpoint details
+            api_spec = self.openapi_parser.get_spec(api_name)
+            if not api_spec:
+                return f"API '{api_name}' not found. Available APIs: {', '.join(self.openapi_parser.specs.keys())}"
+            
+            endpoint_details = self.openapi_parser.get_endpoint_details(api_name, endpoint_path, method)
+            if not endpoint_details:
+                return f"Endpoint '{method} {endpoint_path}' not found in API '{api_name}'"
+            
+            # Build the request
+            output = [f"# HTTP Request for {api_name.upper()} API\n"]
+            output.append(f"**Endpoint:** {method.upper()} {endpoint_path}\n")
+            
+            # Base URL
+            base_url = "https://api.bigcommerce.com/stores/{store_hash}"
+            output.append(f"**Base URL:** {base_url}\n")
+            
+            # Full URL with path parameters
+            full_url = f"{base_url}{endpoint_path}"
+            if parameters:
+                path_params = {k: v for k, v in parameters.items() if k in endpoint_path}
+                for param, value in path_params.items():
+                    full_url = full_url.replace(f"{{{param}}}", str(value))
+            output.append(f"**Full URL:** {full_url}\n")
+            
+            # Headers
+            output.append("## Headers")
+            output.append("```")
+            output.append("Content-Type: application/json")
+            if auth_type == "bearer":
+                output.append("Authorization: Bearer {access_token}")
+            elif auth_type == "basic":
+                output.append("Authorization: Basic {base64_encoded_credentials}")
+            output.append("Accept: application/json")
+            output.append("```\n")
+            
+            # Query Parameters
+            if parameters:
+                query_params = {k: v for k, v in parameters.items() if k not in endpoint_path}
+                if query_params:
+                    output.append("## Query Parameters")
+                    output.append("```json")
+                    output.append(json.dumps(query_params, indent=2))
+                    output.append("```\n")
+            
+            # Request Body
+            if body and method.upper() in ["POST", "PUT", "PATCH"]:
+                output.append("## Request Body")
+                output.append("```json")
+                output.append(json.dumps(body, indent=2))
+                output.append("```\n")
+            
+            # Example with curl
+            output.append("## cURL Example")
+            curl_cmd = f"curl -X {method.upper()} \\"
+            curl_cmd += f"\n  '{full_url}' \\"
+            curl_cmd += "\n  -H 'Content-Type: application/json' \\"
+            if auth_type == "bearer":
+                curl_cmd += "\n  -H 'Authorization: Bearer {access_token}' \\"
+            curl_cmd += "\n  -H 'Accept: application/json'"
+            
+            if query_params:
+                query_string = "&".join([f"{k}={v}" for k, v in query_params.items()])
+                curl_cmd += f" \\\n  -G -d '{query_string}'"
+            
+            if body and method.upper() in ["POST", "PUT", "PATCH"]:
+                curl_cmd += f" \\\n  -d '{json.dumps(body)}'"
+            
+            output.append("```bash")
+            output.append(curl_cmd)
+            output.append("```\n")
+            
+            # JavaScript/Node.js Example
+            output.append("## JavaScript/Node.js Example")
+            output.append("```javascript")
+            output.append("const response = await fetch(")
+            output.append(f"  '{full_url}', {{")
+            output.append("    method: '" + method.upper() + "',")
+            output.append("    headers: {")
+            output.append("      'Content-Type': 'application/json',")
+            if auth_type == "bearer":
+                output.append("      'Authorization': 'Bearer ' + accessToken,")
+            output.append("      'Accept': 'application/json'")
+            output.append("    },")
+            
+            if body and method.upper() in ["POST", "PUT", "PATCH"]:
+                output.append("    body: JSON.stringify(")
+                output.append("      " + json.dumps(body, indent=6))
+                output.append("    )")
+            
+            output.append("  }")
+            output.append(");")
+            output.append("")
+            output.append("const data = await response.json();")
+            output.append("```\n")
+            
+            # Python Example
+            output.append("## Python Example")
+            output.append("```python")
+            output.append("import requests")
+            output.append("")
+            output.append("headers = {")
+            output.append("    'Content-Type': 'application/json',")
+            if auth_type == "bearer":
+                output.append("    'Authorization': 'Bearer ' + access_token,")
+            output.append("    'Accept': 'application/json'")
+            output.append("}")
+            output.append("")
+            
+            if body and method.upper() in ["POST", "PUT", "PATCH"]:
+                output.append("data = " + json.dumps(body, indent=4))
+                output.append("")
+            
+            output.append(f"response = requests.{method.lower()}(")
+            output.append(f"    '{full_url}',")
+            if body and method.upper() in ["POST", "PUT", "PATCH"]:
+                output.append("    json=data,")
+            output.append("    headers=headers")
+            output.append(")")
+            output.append("")
+            output.append("data = response.json()")
+            output.append("```\n")
+            
+            # Endpoint Documentation
+            if endpoint_details.get('summary'):
+                output.append(f"## Endpoint Summary")
+                output.append(f"{endpoint_details['summary']}\n")
+            
+            if endpoint_details.get('description'):
+                output.append(f"## Description")
+                output.append(f"{endpoint_details['description']}\n")
+            
+            # Parameters Documentation
+            if endpoint_details.get('parameters'):
+                output.append("## Parameters")
+                for param in endpoint_details['parameters']:
+                    param_name = param.get('name', 'Unknown')
+                    param_type = param.get('in', 'unknown')
+                    param_required = param.get('required', False)
+                    param_desc = param.get('description', 'No description')
+                    
+                    output.append(f"- **{param_name}** ({param_type}){' (required)' if param_required else ' (optional)'}: {param_desc}")
+                output.append("")
+            
+            return "\n".join(output)
+            
+        except Exception as e:
+            logger.error(f"Error building HTTP request: {e}")
+            return f"Error building HTTP request: {str(e)}"
+    
+    async def generate_api_client_code(self, api_name: str, language: str = "python") -> str:
+        """Generate API client code for a specific BigCommerce API"""
+        try:
+            api_spec = self.openapi_parser.get_spec(api_name)
+            if not api_spec:
+                return f"API '{api_name}' not found. Available APIs: {', '.join(self.openapi_parser.specs.keys())}"
+            
+            endpoints = api_spec.get('endpoints', [])
+            if not endpoints:
+                return f"No endpoints found for API '{api_name}'"
+            
+            output = [f"# {api_name.upper()} API Client ({language.title()})\n"]
+            
+            if language.lower() == "python":
+                output.extend(self._generate_python_client(api_name, endpoints))
+            elif language.lower() == "javascript":
+                output.extend(self._generate_javascript_client(api_name, endpoints))
+            elif language.lower() == "curl":
+                output.extend(self._generate_curl_examples(api_name, endpoints))
+            else:
+                return f"Unsupported language: {language}. Supported: python, javascript, curl"
+            
+            return "\n".join(output)
+            
+        except Exception as e:
+            logger.error(f"Error generating API client code: {e}")
+            return f"Error generating API client code: {str(e)}"
+    
+    def _generate_python_client(self, api_name: str, endpoints: List[Dict]) -> List[str]:
+        """Generate Python client code"""
+        output = []
+        output.append("```python")
+        output.append("import requests")
+        output.append("from typing import Dict, Any, Optional")
+        output.append("")
+        output.append("")
+        output.append(f"class {api_name.title()}APIClient:")
+        output.append("    def __init__(self, store_hash: str, access_token: str):")
+        output.append("        self.base_url = f'https://api.bigcommerce.com/stores/{store_hash}'")
+        output.append("        self.headers = {")
+        output.append("            'Content-Type': 'application/json',")
+        output.append("            'Authorization': f'Bearer {access_token}',")
+        output.append("            'Accept': 'application/json'")
+        output.append("        }")
+        output.append("")
+        
+        for endpoint in endpoints[:10]:  # Limit to first 10 endpoints
+            path = endpoint.get('path', '')
+            method = endpoint.get('method', 'GET').lower()
+            operation_id = endpoint.get('operation_id', '')
+            
+            if operation_id:
+                method_name = operation_id.replace('get', '').replace('post', '').replace('put', '').replace('delete', '')
+                method_name = method_name[0].lower() + method_name[1:] if method_name else f"{method}_{path.split('/')[-1]}"
+            else:
+                method_name = f"{method}_{path.split('/')[-1]}"
+            
+            output.append(f"    def {method_name}(self, **kwargs) -> Dict[str, Any]:")
+            output.append(f"        \"\"\"{endpoint.get('summary', f'{method.upper()} {path}')}\"\"\"")
+            output.append(f"        url = f'{{self.base_url}}{path}'")
+            
+            if method.upper() in ["POST", "PUT", "PATCH"]:
+                output.append("        data = kwargs.get('data', {})")
+                output.append(f"        response = requests.{method}(url, json=data, headers=self.headers)")
+            else:
+                output.append("        params = kwargs.get('params', {})")
+                output.append(f"        response = requests.{method}(url, params=params, headers=self.headers)")
+            
+            output.append("        response.raise_for_status()")
+            output.append("        return response.json()")
+            output.append("")
+        
+        output.append("")
+        output.append("# Usage example:")
+        output.append("client = BigCommerceAPIClient('your_store_hash', 'your_access_token')")
+        output.append("products = client.get_products()")
+        output.append("```")
+        
+        return output
+    
+    def _generate_javascript_client(self, api_name: str, endpoints: List[Dict]) -> List[str]:
+        """Generate JavaScript client code"""
+        output = []
+        output.append("```javascript")
+        output.append(f"class {api_name.charAt(0).toUpperCase() + api_name.slice(1)}APIClient {{")
+        output.append("    constructor(storeHash, accessToken) {")
+        output.append("        this.baseUrl = `https://api.bigcommerce.com/stores/${storeHash}`;")
+        output.append("        this.headers = {")
+        output.append("            'Content-Type': 'application/json',")
+        output.append("            'Authorization': `Bearer ${accessToken}`,")
+        output.append("            'Accept': 'application/json'")
+        output.append("        };")
+        output.append("    }")
+        output.append("")
+        
+        for endpoint in endpoints[:10]:  # Limit to first 10 endpoints
+            path = endpoint.get('path', '')
+            method = endpoint.get('method', 'GET').toLowerCase()
+            operation_id = endpoint.get('operation_id', '')
+            
+            if operation_id:
+                method_name = operation_id.replace('get', '').replace('post', '').replace('put', '').replace('delete', '')
+                method_name = method_name.charAt(0).toLowerCase() + method_name.slice(1) if method_name else `${method}${path.split('/').pop()}`
+            else:
+                method_name = `${method}${path.split('/').pop()}`
+            
+            output.append(f"    async {method_name}(params = {{}}) {{")
+            output.append(f"        // {endpoint.get('summary', `${method.toUpperCase()} ${path}`)}")
+            output.append(f"        const url = `${{this.baseUrl}}{path}`;")
+            
+            if method.toUpperCase() in ["POST", "PUT", "PATCH"]:
+                output.append("        const response = await fetch(url, {")
+                output.append(f"            method: '{method.toUpperCase()}',")
+                output.append("            headers: this.headers,")
+                output.append("            body: JSON.stringify(params.data || {})")
+                output.append("        });")
+            else:
+                output.append("        const queryString = new URLSearchParams(params.query || {}).toString();")
+                output.append("        const fullUrl = queryString ? `${url}?${queryString}` : url;")
+                output.append("        const response = await fetch(fullUrl, {")
+                output.append("            method: 'GET',")
+                output.append("            headers: this.headers")
+                output.append("        });")
+            
+            output.append("        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);")
+            output.append("        return await response.json();")
+            output.append("    }")
+            output.append("")
+        
+        output.append("}")
+        output.append("")
+        output.append("// Usage example:")
+        output.append("const client = new BigCommerceAPIClient('your_store_hash', 'your_access_token');")
+        output.append("const products = await client.getProducts();")
+        output.append("```")
+        
+        return output
+    
+    def _generate_curl_examples(self, api_name: str, endpoints: List[Dict]) -> List[str]:
+        """Generate cURL examples"""
+        output = []
+        output.append("```bash")
+        output.append(f"# {api_name.upper()} API Examples")
+        output.append("STORE_HASH='your_store_hash'")
+        output.append("ACCESS_TOKEN='your_access_token'")
+        output.append("BASE_URL=\"https://api.bigcommerce.com/stores/$STORE_HASH\"")
+        output.append("")
+        
+        for endpoint in endpoints[:5]:  # Limit to first 5 endpoints
+            path = endpoint.get('path', '')
+            method = endpoint.get('method', 'GET')
+            summary = endpoint.get('summary', f'{method} {path}')
+            
+            output.append(f"# {summary}")
+            output.append(f"curl -X {method} \\")
+            output.append(f"  \"$BASE_URL{path}\" \\")
+            output.append("  -H 'Content-Type: application/json' \\")
+            output.append("  -H \"Authorization: Bearer $ACCESS_TOKEN\" \\")
+            output.append("  -H 'Accept: application/json'")
+            output.append("")
+        
+        output.append("```")
+        
+        return output 

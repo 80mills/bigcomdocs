@@ -1,0 +1,303 @@
+openapi: 3.0.1
+info:
+  title: Sales Staff
+  description: |-
+    Sales Staff are backend team members who have access to a set group of Companies and features within B2B Edition. By default, Sales Staff will have the system user role Sales Rep, but you can create custom system user roles within B2B Edition that function as Sales Staff. For more information on configuring system user roles, see [B2B Edition User Roles and Permissions (Help Center)](https://support.bigcommerce.com/s/article/B2B-Edition-User-Roles-and-Permissions).
+    
+    **Note:** These endpoints are specifically for managing the Company assignments of backend user accounts. To manage frontend user accounts, see [User (Server-to-Server)](/b2b-edition/apis/rest-management/user) for individual accounts or [Company (Server-to-Server)](/b2b-edition/apis/rest-management/company) for Company accounts.
+  contact:
+    name: BigCommerce
+    url: 'https://www.bigcommerce.com'
+    email: support@bigcommerce.com
+  version: v3
+  termsOfService: 'https://www.bigcommerce.com/terms'
+servers:
+  - url: https://api-b2b.bigcommerce.com/api/v3/io
+tags:
+  - name: Sales Staff
+paths:
+  /sales-staffs:
+    parameters: []
+    get:
+      tags:
+        - Sales Staff
+      summary: "Get All Sales Staff"
+      operationId: get-sales-staffs
+      description: "Returns an array of all B2B Edition users who are assigned to a user role that is labelled as Sales Staff."
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+          description: "Maximum number of results to display per page."
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+          description: "Number of results to skip before displaying the current page."
+        - name: orderBy
+          in: query
+          schema:
+            type: string
+            default: "DESC"
+            enum:
+              - "DESC"
+              - "ASC"
+          description: "Sort direction of results, ascending or descending, applied to the `sortBy` parameter."
+        - name: companyId
+          in: query
+          schema:
+            type: string
+          description: "Unique numeric ID of the Company account."
+          example: 123456
+        - name: minModified
+          in: query
+          schema:
+            type: integer
+          description: "The earliest [Unix timestamp](https://www.unixtimestamp.com/) that can be returned for a modified Company account."
+          example: 1721835018
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            default: updated_at
+            enum:
+            - "updated_at"
+            - "email"
+          description: "Field by which data should be sorted in the response."
+      security:
+      - authToken: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: https://raw.githubusercontent.com/bigcommerce/docs/main/docs/b2b-edition/models/response/code-array-meta.yaml
+                  - properties:
+                      data:
+                        items:
+                          allOf:
+                            - $ref: '#/components/schemas/salesRep'
+                            - properties:
+                                salesRepName:
+                                  $ref: '#/components/schemas/salesRepName'
+                                roleName:
+                                  $ref: '#/components/schemas/salesRepRole'
+                                companyCount:
+                                  $ref: '#/components/schemas/companyCount'
+                      meta:
+                        properties:
+                          message:
+                            default: "SUCCESS"
+                          pagination:
+                            $ref: "#/components/schemas/pagination"
+                      code:
+                        default: 200
+  /sales-staffs/{salesStaffId}:
+    parameters:
+      - name: salesStaffId
+        in: path
+        required: true
+        schema:
+          type: integer
+        description: "Unique numeric ID of the Sales Staff account."
+    get:
+      tags:
+        - Sales Staff
+      summary: "Get Sales Staff Account Details"
+      operationId: get-sales-staffs-salesStaffId
+      description: "Returns detailed information about the Sales Staff account associated with `salesStaffId`, including an array of Companies to which the account is assigned and when the assignment was made."
+      security:
+        - authToken: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: https://raw.githubusercontent.com/bigcommerce/docs/main/docs/b2b-edition/models/response/code-object-meta.yaml
+                  - properties:
+                      code:
+                        default: 200
+                      meta:
+                        properties:
+                          message:
+                            default: "SUCCESS"
+                      data:
+                        allOf:
+                          - $ref: '#/components/schemas/salesRep'
+                          - properties:
+                              name:
+                                $ref: '#/components/schemas/salesRepName'
+                              phoneNumber:
+                                type: string
+                                description: "The phone number associated with the Sales Staff account."
+                                example: "9876543210"
+                              assignedCompanies:
+                                type: array
+                                description: "An array containing basic information for the Companies to which the Sales Staff is assigned."
+                                uniqueItems: true
+                                items:
+                                  type: object
+                                  properties:
+                                    id:
+                                      $ref: "#/components/schemas/companyId"
+                                    bcId:
+                                      type: string
+                                      description: "Unique numeric ID of the BigCommerce customer group assigned to the Company."
+                                      example: '15'
+                                    companyName:
+                                      type: string
+                                      minLength: 1
+                                      description: "The name of the Company account."
+                                      example: "Great Buys, Inc"
+                                    bcGroupName:
+                                      type: string
+                                      minLength: 1
+                                      description: "The name of the BigCommerce customer group assigned to the Company."
+                                      example: "Great Buys"
+                                    assignedAt:
+                                      type: integer
+                                      description: "The [Unix timestamp](https://www.unixtimestamp.com/) when the Sales Staff was assigned to the Company."
+                                      example: 1721835018
+    put:
+      tags:
+        - Sales Staff
+      summary: "Update Sales Staff Assignments"
+      operationId: put-sales-staffs-salesStaffId
+      description: "Updates the Company assignments of the Sales Staff account associated with `salesStaffId`. This operation is non-destructive, meaning that assigning or unassigning a single Company from the Sales Staff does not affect the other assignments."
+      security:
+        - authToken: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              description: ''
+              type: array
+              items:
+                type: object
+                properties:
+                  companyId:
+                    $ref: "#/components/schemas/companyId"
+                  assignStatus:
+                    type: boolean
+                    description: "Indicates whether the Sales Staff account is being assigned to (`true`) or unassigned from (`false`) the Company."
+                required:
+                - companyId
+                - assignStatus
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: https://raw.githubusercontent.com/bigcommerce/docs/main/docs/b2b-edition/models/response/code-object-meta.yaml
+                  - properties:
+                      code:
+                        default: 200
+                      meta:
+                        properties:
+                          message:
+                            default: "SUCCESS"
+        '400':
+          description: |-
+            Bad Request
+            
+            This response will be returned only for malformed JSON.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: https://raw.githubusercontent.com/bigcommerce/docs/main/docs/b2b-edition/models/response/code-object-meta.yaml
+                  - properties:
+                      code:
+                        default: 400
+                      meta:
+                        properties:
+                          message:
+                            default: "Bad Request"
+        '422':
+          description: |-
+            Parameter Error
+
+            This error may be thrown for any of the following:
+            - incorrect `salesStaffId`,
+            - incorrect `companyId`,
+            - invalid `assignStatus` type, or
+            - invalid `companyId` type.
+
+            Use `errMsg` to determine the specific cause.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: https://raw.githubusercontent.com/bigcommerce/docs/main/docs/b2b-edition/models/response/code-object-meta.yaml
+                  - properties:
+                      code:
+                        default: 422
+                      meta:
+                        properties:
+                          message:
+                            default: "Parameter Error"
+                      data:
+                        properties:
+                          errMsg:
+                            type: string
+                            example: "Must be a valid boolean."
+components:
+  schemas:
+    companyId:
+      type: integer
+      description: "Unique numeric ID of the Company account."
+      example: 123456
+    salesRepName:
+      type: string
+      description: "The name of the Sales Staff as given in B2B Edition."
+      example: "Marie Curie"
+    salesRepRole:
+      type: string
+      description: "The name of the user role assigned to the Sales Staff account as shown in B2B Edition."
+      example: "Sales Rep"
+    companyCount:
+      type: integer
+      description: "The total number of Companies to which the Sales Staff account is assigned."
+      example: 5
+    salesRep:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: "Unique numeric ID of the Sales Staff account."
+          example: 20135
+        email:
+          type: string
+          description: "The email address associated with the Sales Staff account."
+          format: email
+    pagination:
+      type: object
+      properties:
+        limit:
+          type: integer
+          description: "Maximum number of results to display per page."
+          default: 10
+        offset:
+          type: integer
+          description: "Number of results to skip before displaying the current page."
+          default: 0
+        totalCount:
+          type: integer
+          description: "The total number of items matching the query."
+          example: 179
+  securitySchemes:
+    authToken:
+      name: authToken
+      description: Required to authenticate requests. Include the token in a header
+        parameter called `authToken`.
+      type: apiKey
+      in: header
