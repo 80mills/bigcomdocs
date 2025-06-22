@@ -1,0 +1,28 @@
+{
+  "mcpServers": {
+    "bigcommerce": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/sdk", "server", "https://mcpserverbigcommerce-evi7wq3dp-80mills-projects.vercel.app/api/mcp"],
+      "env": {
+        "MCP_SERVER_URL": "https://mcpserverbigcommerce-evi7wq3dp-80mills-projects.vercel.app/api/mcp"
+      }
+    }
+  },
+  "tools": {
+    "bigcommerce_api": {
+      "name": "BigCommerce API",
+      "description": "Access BigCommerce API endpoints and documentation",
+      "server": "bigcommerce"
+    },
+    "bigcommerce_docs": {
+      "name": "BigCommerce Documentation",
+      "description": "Search and retrieve BigCommerce documentation",
+      "server": "bigcommerce"
+    },
+    "bigcommerce_schema": {
+      "name": "BigCommerce Schema",
+      "description": "Access BigCommerce API schemas and models",
+      "server": "bigcommerce"
+    }
+  }
+} 

@@ -1,0 +1,119 @@
+{
+  "name": "BigCommerce MCP Integration",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "url": "https://mcpserverbigcommerce-evi7wq3dp-80mills-projects.vercel.app/api/mcp",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "json",
+              "value": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}"
+            }
+          ]
+        }
+      },
+      "id": "mcp-tools-list",
+      "name": "List MCP Tools",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "url": "https://mcpserverbigcommerce-evi7wq3dp-80mills-projects.vercel.app/api/mcp",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "json",
+              "value": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"search_documentation\",\"arguments\":{\"query\":\"API rate limits\"}}}"
+            }
+          ]
+        }
+      },
+      "id": "mcp-search-docs",
+      "name": "Search Documentation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "url": "https://mcpserverbigcommerce-evi7wq3dp-80mills-projects.vercel.app/api/mcp",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "json",
+              "value": "{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/call\",\"params\":{\"name\":\"build_http_request\",\"arguments\":{\"endpoint\":\"/catalog/products\",\"method\":\"GET\",\"params\":{\"limit\":5}}}}"
+            }
+          ]
+        }
+      },
+      "id": "mcp-build-request",
+      "name": "Build API Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [680, 300]
+    }
+  ],
+  "connections": {
+    "List MCP Tools": {
+      "main": [
+        [
+          {
+            "node": "Search Documentation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Documentation": {
+      "main": [
+        [
+          {
+            "node": "Build API Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "1"
+} 
