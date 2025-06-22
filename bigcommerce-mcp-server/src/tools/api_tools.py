@@ -13,8 +13,9 @@ class APITools:
     def __init__(self, openapi_parser, search_indexer):
         self.openapi_parser = openapi_parser
         self.search_indexer = search_indexer
-        # Agentic use case patterns
+        # Define common use case patterns for agentic API selection
         self.use_case_patterns = {
+            # Product management
             'product_queries': {
                 'keywords': ['products', 'catalog', 'items', 'goods', 'merchandise'],
                 'apis': ['catalog', 'products_catalog'],
@@ -43,6 +44,8 @@ class APITools:
                 'methods': ['POST', 'PUT'],
                 'description': 'Perform operations on multiple products at once'
             },
+            
+            # Inventory management
             'inventory_queries': {
                 'keywords': ['inventory', 'stock', 'quantity', 'availability'],
                 'apis': ['inventory', 'catalog'],
@@ -64,6 +67,8 @@ class APITools:
                 'methods': ['POST', 'PUT'],
                 'description': 'Update inventory for multiple products'
             },
+            
+            # Order management
             'order_queries': {
                 'keywords': ['orders', 'purchases', 'transactions'],
                 'apis': ['orders'],
@@ -78,6 +83,8 @@ class APITools:
                 'methods': ['PUT', 'PATCH'],
                 'description': 'Update order status and information'
             },
+            
+            # Customer management
             'customer_queries': {
                 'keywords': ['customers', 'users', 'buyers', 'shoppers'],
                 'apis': ['customers'],
@@ -92,6 +99,8 @@ class APITools:
                 'methods': ['PUT', 'PATCH'],
                 'description': 'Update customer information'
             },
+            
+            # Category management
             'category_queries': {
                 'keywords': ['categories', 'departments', 'sections'],
                 'apis': ['catalog', 'categories_catalog'],
@@ -99,6 +108,8 @@ class APITools:
                 'methods': ['GET'],
                 'description': 'Query category information'
             },
+            
+            # Pricing
             'pricing_queries': {
                 'keywords': ['pricing', 'prices', 'cost', 'price lists'],
                 'apis': ['price_lists', 'catalog'],
@@ -113,6 +124,8 @@ class APITools:
                 'methods': ['POST', 'PUT'],
                 'description': 'Update product pricing'
             },
+            
+            # Webhooks
             'webhook_setup': {
                 'keywords': ['webhooks', 'notifications', 'events', 'callbacks'],
                 'apis': ['webhooks'],
@@ -120,12 +133,53 @@ class APITools:
                 'methods': ['POST', 'GET'],
                 'description': 'Set up webhook notifications'
             },
+            
+            # Widgets and content
             'widget_management': {
                 'keywords': ['widgets', 'content', 'display', 'frontend'],
                 'apis': ['widgets', 'page_widgets'],
                 'endpoints': ['/content/widgets', '/content/widget-templates'],
                 'methods': ['GET', 'POST', 'PUT', 'DELETE'],
                 'description': 'Manage storefront widgets and content'
+            }
+        }
+        
+        # Dropshipping-specific business logic patterns
+        self.dropshipping_patterns = {
+            'pricing_strategy': {
+                'primary': 'MAP',
+                'fallback': 'MSRP',
+                'cost_plus_minimum': 0.15,
+                'map_compliance': True,
+                'competitive_factor': 0.95,
+                'margin_requirements': {
+                    'minimum': 0.10,
+                    'target': 0.25,
+                    'maximum_discount': 0.30
+                }
+            },
+            'inventory_sync': {
+                'update_frequency': 300,  # 5 minutes in seconds
+                'buffer_stock': 2,
+                'max_quantity_display': 10,
+                'stockout_threshold': 1,
+                'sync_tolerance': 0.1  # 10% variance tolerance
+            },
+            'product_management': {
+                'auto_enable_disable': True,
+                'visibility_rules': {
+                    'min_stock': 1,
+                    'valid_pricing': True,
+                    'supplier_active': True
+                },
+                'bulk_operation_size': 100,
+                'rate_limit_buffer': 0.8  # Use 80% of rate limit
+            },
+            'order_processing': {
+                'auto_status_updates': True,
+                'tracking_sync': True,
+                'inventory_adjustment': True,
+                'notification_triggers': ['order_created', 'payment_received', 'shipped']
             }
         }
     
@@ -488,4 +542,462 @@ class APITools:
             return "\n".join(output)
         except Exception as e:
             logger.error(f"Error getting bulk operation guide: {e}")
-            return f"Error getting bulk operation guide: {str(e)}" 
+            return f"Error getting bulk operation guide: {str(e)}"
+    
+    async def optimize_pricing_across_channels(self, product_data: dict, map_pricing: dict = None, cost_data: dict = None) -> str:
+        """Optimize BigCommerce pricing based on MAP, cost, and dropshipping requirements"""
+        try:
+            output = [f"# BigCommerce Pricing Optimization\n"]
+            
+            # Extract product information
+            product_id = product_data.get('id', 'unknown')
+            current_price = product_data.get('price', 0)
+            product_name = product_data.get('name', 'Unknown Product')
+            
+            output.append(f"**Product:** {product_name} (ID: {product_id})")
+            output.append(f"**Current Price:** ${current_price}")
+            
+            # Analyze pricing strategy
+            pricing_strategy = self.dropshipping_patterns['pricing_strategy']
+            
+            # Determine optimal pricing
+            recommended_price = None
+            pricing_rationale = []
+            
+            if map_pricing:
+                map_price = map_pricing.get('price', 0)
+                if map_price > 0:
+                    recommended_price = map_price
+                    pricing_rationale.append(f"MAP pricing enforced: ${map_price}")
+                    output.append(f"**MAP Price:** ${map_price}")
+            
+            if cost_data and not recommended_price:
+                cost = cost_data.get('cost', 0)
+                if cost > 0:
+                    min_margin = pricing_strategy['cost_plus_minimum']
+                    target_margin = pricing_strategy['margin_requirements']['target']
+                    
+                    min_price = cost * (1 + min_margin)
+                    target_price = cost * (1 + target_margin)
+                    
+                    recommended_price = target_price
+                    pricing_rationale.append(f"Cost-plus pricing: ${cost} + {target_margin*100}% = ${target_price}")
+                    output.append(f"**Cost:** ${cost}")
+                    output.append(f"**Minimum Price:** ${min_price}")
+                    output.append(f"**Target Price:** ${target_price}")
+            
+            if recommended_price:
+                output.append(f"**Recommended Price:** ${recommended_price}")
+                
+                # Price change analysis
+                if abs(recommended_price - current_price) > 0.01:
+                    price_change = recommended_price - current_price
+                    change_percent = (price_change / current_price) * 100 if current_price > 0 else 0
+                    output.append(f"**Price Change:** ${price_change:.2f} ({change_percent:.1f}%)")
+                    
+                    if abs(change_percent) > 5:
+                        output.append("⚠️ **Significant Price Change Detected**")
+                else:
+                    output.append("✅ **Current pricing is optimal**")
+            
+            # BigCommerce API recommendations
+            output.append(f"\n## Recommended BigCommerce API Actions")
+            
+            if recommended_price and abs(recommended_price - current_price) > 0.01:
+                output.append("### Update Product Price")
+                output.append(f"**API:** Catalog API")
+                output.append(f"**Endpoint:** PUT /catalog/products/{product_id}")
+                output.append("**Payload:**")
+                output.append("```json")
+                output.append("{")
+                output.append(f'  "price": {recommended_price}')
+                output.append("}")
+                output.append("```")
+            
+            # Pricing rationale
+            if pricing_rationale:
+                output.append(f"\n## Pricing Rationale")
+                for i, reason in enumerate(pricing_rationale, 1):
+                    output.append(f"{i}. {reason}")
+            
+            # Best practices
+            output.append(f"\n## Best Practices")
+            output.append("- Always respect MAP pricing when available")
+            output.append("- Maintain minimum margin requirements")
+            output.append("- Monitor competitor pricing regularly")
+            output.append("- Use batch updates for multiple products")
+            output.append("- Set up webhooks for price change notifications")
+            
+            return "\n".join(output)
+            
+        except Exception as e:
+            logger.error(f"Error optimizing pricing: {e}")
+            return f"Error optimizing pricing: {str(e)}"
+    
+    async def sync_inventory_strategy(self, supplier_inventory: dict, current_bc_inventory: dict = None) -> str:
+        """Recommend BigCommerce inventory sync strategy for dropshipping"""
+        try:
+            output = [f"# BigCommerce Inventory Sync Strategy\n"]
+            
+            sync_config = self.dropshipping_patterns['inventory_sync']
+            buffer_stock = sync_config['buffer_stock']
+            max_display = sync_config['max_quantity_display']
+            
+            # Analyze inventory data
+            total_products = len(supplier_inventory)
+            output.append(f"**Products to Sync:** {total_products}")
+            
+            sync_actions = []
+            products_to_update = []
+            products_to_disable = []
+            
+            for product_id, supplier_data in supplier_inventory.items():
+                supplier_qty = supplier_data.get('quantity', 0)
+                current_qty = 0
+                
+                if current_bc_inventory and product_id in current_bc_inventory:
+                    current_qty = current_bc_inventory[product_id].get('quantity', 0)
+                
+                # Determine target quantity for BigCommerce
+                if supplier_qty <= 0:
+                    target_qty = 0
+                    products_to_disable.append(product_id)
+                elif supplier_qty <= buffer_stock:
+                    target_qty = 1  # Show as available but limited
+                else:
+                    target_qty = min(supplier_qty - buffer_stock, max_display)
+                
+                # Check if update is needed
+                if target_qty != current_qty:
+                    products_to_update.append({
+                        'product_id': product_id,
+                        'current_qty': current_qty,
+                        'target_qty': target_qty,
+                        'supplier_qty': supplier_qty
+                    })
+            
+            # Summary statistics
+            output.append(f"**Products Needing Updates:** {len(products_to_update)}")
+            output.append(f"**Products to Disable:** {len(products_to_disable)}")
+            output.append(f"**No Changes Needed:** {total_products - len(products_to_update)}")
+            
+            # Sync strategy recommendations
+            output.append(f"\n## Sync Strategy")
+            output.append(f"**Buffer Stock:** {buffer_stock} units (reserved for supplier)")
+            output.append(f"**Max Display Quantity:** {max_display} units")
+            output.append(f"**Update Frequency:** Every {sync_config['update_frequency']} seconds")
+            
+            # BigCommerce API recommendations
+            if products_to_update:
+                output.append(f"\n## Recommended BigCommerce API Actions")
+                
+                # Batch inventory updates
+                if len(products_to_update) > 10:
+                    output.append("### Batch Inventory Update")
+                    output.append(f"**API:** Catalog API")
+                    output.append(f"**Endpoint:** PUT /catalog/products/batch")
+                    output.append(f"**Batch Size:** {min(len(products_to_update), 100)} products")
+                    output.append("**Payload Structure:**")
+                    output.append("```json")
+                    output.append("[")
+                    for i, update in enumerate(products_to_update[:3]):  # Show first 3 examples
+                        output.append("  {")
+                        output.append(f'    "id": {update["product_id"]},')
+                        output.append(f'    "inventory_level": {update["target_qty"]}')
+                        output.append("  }" + ("," if i < 2 else ""))
+                    if len(products_to_update) > 3:
+                        output.append(f"  // ... {len(products_to_update) - 3} more products")
+                    output.append("]")
+                    output.append("```")
+                else:
+                    output.append("### Individual Product Updates")
+                    for update in products_to_update[:5]:  # Show first 5
+                        output.append(f"**Product {update['product_id']}:**")
+                        output.append(f"- Current: {update['current_qty']} → Target: {update['target_qty']}")
+                        output.append(f"- API: PUT /catalog/products/{update['product_id']}")
+            
+            # Product visibility management
+            if products_to_disable:
+                output.append(f"\n### Product Visibility Management")
+                output.append(f"**Products to Hide:** {len(products_to_disable)}")
+                output.append(f"**API:** Catalog API")
+                output.append(f"**Endpoint:** PUT /catalog/products/batch")
+                output.append("**Action:** Set `is_visible: false` for out-of-stock products")
+            
+            # Performance considerations
+            output.append(f"\n## Performance Optimization")
+            output.append(f"- Use batch updates for {len(products_to_update)} products")
+            output.append(f"- Implement rate limiting (max 80% of API limits)")
+            output.append(f"- Consider webhooks for real-time inventory changes")
+            output.append(f"- Cache inventory data to reduce API calls")
+            
+            # Error handling
+            output.append(f"\n## Error Handling")
+            output.append("- Retry failed updates with exponential backoff")
+            output.append("- Log all inventory sync operations")
+            output.append("- Alert on repeated sync failures")
+            output.append("- Maintain fallback inventory levels")
+            
+            return "\n".join(output)
+            
+        except Exception as e:
+            logger.error(f"Error creating inventory sync strategy: {e}")
+            return f"Error creating inventory sync strategy: {str(e)}"
+    
+    async def handle_stockout_scenario(self, out_of_stock_products: list, alternative_options: dict = None) -> str:
+        """Handle BigCommerce product stockouts in dropshipping scenario"""
+        try:
+            output = [f"# BigCommerce Stockout Management\n"]
+            
+            total_stockouts = len(out_of_stock_products)
+            output.append(f"**Products Out of Stock:** {total_stockouts}")
+            
+            # Categorize stockout actions
+            products_to_hide = []
+            products_to_redirect = []
+            products_to_notify = []
+            
+            for product_id in out_of_stock_products:
+                product_data = {'id': product_id}
+                
+                # Check if alternative suppliers available
+                if alternative_options and product_id in alternative_options:
+                    alternatives = alternative_options[product_id]
+                    if alternatives:
+                        products_to_redirect.append({
+                            'product_id': product_id,
+                            'alternatives': alternatives
+                        })
+                    else:
+                        products_to_hide.append(product_id)
+                else:
+                    products_to_hide.append(product_id)
+                
+                products_to_notify.append(product_id)
+            
+            # Action summary
+            output.append(f"**Products to Hide:** {len(products_to_hide)}")
+            output.append(f"**Products with Alternatives:** {len(products_to_redirect)}")
+            output.append(f"**Notifications Needed:** {len(products_to_notify)}")
+            
+            # BigCommerce API actions
+            output.append(f"\n## Recommended BigCommerce API Actions")
+            
+            # Hide out-of-stock products
+            if products_to_hide:
+                output.append("### Hide Out-of-Stock Products")
+                output.append(f"**API:** Catalog API")
+                output.append(f"**Endpoint:** PUT /catalog/products/batch")
+                output.append("**Action:** Set visibility and inventory to zero")
+                output.append("**Payload:**")
+                output.append("```json")
+                output.append("[")
+                for i, product_id in enumerate(products_to_hide[:3]):
+                    output.append("  {")
+                    output.append(f'    "id": {product_id},')
+                    output.append('    "is_visible": false,')
+                    output.append('    "inventory_level": 0')
+                    output.append("  }" + ("," if i < 2 else ""))
+                if len(products_to_hide) > 3:
+                    output.append(f"  // ... {len(products_to_hide) - 3} more products")
+                output.append("]")
+                output.append("```")
+            
+            # Handle products with alternatives
+            if products_to_redirect:
+                output.append("### Products with Alternative Sources")
+                for redirect in products_to_redirect[:3]:
+                    product_id = redirect['product_id']
+                    alternatives = redirect['alternatives']
+                    output.append(f"**Product {product_id}:**")
+                    output.append(f"- Alternative suppliers: {len(alternatives)}")
+                    output.append(f"- Action: Update supplier reference and restore visibility")
+                    output.append(f"- API: PUT /catalog/products/{product_id}")
+            
+            # Customer notification strategy
+            output.append(f"\n## Customer Communication Strategy")
+            output.append("### Email Notifications")
+            output.append("- Send 'back in stock' notifications when available")
+            output.append("- Suggest alternative products where applicable")
+            output.append("- Use BigCommerce email templates for consistency")
+            
+            output.append("### Product Page Updates")
+            output.append("- Add 'temporarily unavailable' messaging")
+            output.append("- Display estimated restock dates if known")
+            output.append("- Show related/alternative products")
+            
+            # Automation recommendations
+            output.append(f"\n## Automation Recommendations")
+            output.append("### Webhook Setup")
+            output.append("- Monitor inventory changes in real-time")
+            output.append("- Trigger immediate stockout handling")
+            output.append("- API: POST /hooks (inventory/updated event)")
+            
+            output.append("### Scheduled Monitoring")
+            output.append("- Check supplier inventory every 5 minutes")
+            output.append("- Proactively identify potential stockouts")
+            output.append("- Maintain inventory buffer to prevent overselling")
+            
+            # Recovery strategy
+            output.append(f"\n## Recovery Strategy")
+            output.append("### When Stock Returns")
+            output.append("1. Update inventory levels")
+            output.append("2. Restore product visibility")
+            output.append("3. Send back-in-stock notifications")
+            output.append("4. Update related product recommendations")
+            
+            output.append("### Prevent Future Stockouts")
+            output.append("- Implement inventory buffer (2-5 units)")
+            output.append("- Set up low-stock alerts")
+            output.append("- Diversify supplier sources")
+            output.append("- Monitor supplier reliability metrics")
+            
+            return "\n".join(output)
+            
+        except Exception as e:
+            logger.error(f"Error handling stockout scenario: {e}")
+            return f"Error handling stockout scenario: {str(e)}"
+    
+    async def optimize_order_fulfillment(self, order_data: dict, fulfillment_options: dict = None) -> str:
+        """Optimize BigCommerce order processing for dropshipping fulfillment"""
+        try:
+            output = [f"# BigCommerce Order Fulfillment Optimization\n"]
+            
+            # Extract order information
+            order_id = order_data.get('id', 'unknown')
+            order_status = order_data.get('status', 'unknown')
+            order_items = order_data.get('products', [])
+            customer_info = order_data.get('customer', {})
+            
+            output.append(f"**Order ID:** {order_id}")
+            output.append(f"**Status:** {order_status}")
+            output.append(f"**Items:** {len(order_items)}")
+            output.append(f"**Customer:** {customer_info.get('email', 'N/A')}")
+            
+            # Analyze fulfillment requirements
+            fulfillment_actions = []
+            inventory_updates = []
+            status_updates = []
+            
+            for item in order_items:
+                product_id = item.get('product_id')
+                quantity = item.get('quantity', 1)
+                
+                # Determine fulfillment action
+                action = {
+                    'product_id': product_id,
+                    'quantity': quantity,
+                    'status': 'pending_fulfillment'
+                }
+                
+                if fulfillment_options and str(product_id) in fulfillment_options:
+                    supplier_info = fulfillment_options[str(product_id)]
+                    action['supplier'] = supplier_info.get('supplier_name', 'Unknown')
+                    action['estimated_ship_date'] = supplier_info.get('ship_date', 'TBD')
+                
+                fulfillment_actions.append(action)
+                
+                # Plan inventory adjustment
+                inventory_updates.append({
+                    'product_id': product_id,
+                    'quantity_adjustment': -quantity,
+                    'reason': f'Order {order_id} fulfillment'
+                })
+            
+            # BigCommerce API recommendations
+            output.append(f"\n## Recommended BigCommerce API Actions")
+            
+            # Order status update
+            output.append("### 1. Update Order Status")
+            output.append(f"**API:** Orders API")
+            output.append(f"**Endpoint:** PUT /orders/{order_id}")
+            output.append("**Action:** Set status to 'Processing' or 'Awaiting Fulfillment'")
+            output.append("**Payload:**")
+            output.append("```json")
+            output.append("{")
+            output.append('  "status_id": 2,')  # Processing status
+            output.append('  "staff_notes": "Order sent to supplier for fulfillment"')
+            output.append("}")
+            output.append("```")
+            
+            # Inventory adjustments
+            if inventory_updates:
+                output.append("### 2. Adjust Inventory Levels")
+                output.append(f"**API:** Catalog API")
+                output.append(f"**Endpoint:** PUT /catalog/products/batch")
+                output.append("**Action:** Reduce inventory for ordered items")
+                output.append("**Payload:**")
+                output.append("```json")
+                output.append("[")
+                for i, update in enumerate(inventory_updates[:3]):
+                    output.append("  {")
+                    output.append(f'    "id": {update["product_id"]},')
+                    output.append(f'    "inventory_tracking": "simple",')
+                    output.append(f'    "inventory_level": "current_level{update["quantity_adjustment"]}"')
+                    output.append("  }" + ("," if i < 2 else ""))
+                if len(inventory_updates) > 3:
+                    output.append(f"  // ... {len(inventory_updates) - 3} more products")
+                output.append("]")
+                output.append("```")
+            
+            # Customer communication
+            output.append("### 3. Customer Communication")
+            output.append(f"**API:** Orders API")
+            output.append(f"**Endpoint:** POST /orders/{order_id}/messages")
+            output.append("**Action:** Send order confirmation with tracking info")
+            
+            # Fulfillment tracking
+            output.append("### 4. Fulfillment Tracking Setup")
+            for action in fulfillment_actions[:3]:
+                output.append(f"**Product {action['product_id']}:**")
+                output.append(f"- Supplier: {action.get('supplier', 'TBD')}")
+                output.append(f"- Est. Ship Date: {action.get('estimated_ship_date', 'TBD')}")
+                output.append(f"- Quantity: {action['quantity']}")
+            
+            # Automation workflow
+            output.append(f"\n## Automation Workflow")
+            output.append("### Immediate Actions (0-5 minutes)")
+            output.append("1. Update order status to 'Processing'")
+            output.append("2. Adjust product inventory levels")
+            output.append("3. Send order details to supplier")
+            output.append("4. Create fulfillment tracking record")
+            
+            output.append("### Follow-up Actions (1-24 hours)")
+            output.append("1. Confirm supplier received order")
+            output.append("2. Update estimated ship dates")
+            output.append("3. Send customer confirmation email")
+            output.append("4. Set up tracking number webhook")
+            
+            output.append("### Ongoing Monitoring")
+            output.append("1. Track shipment status")
+            output.append("2. Update order with tracking info")
+            output.append("3. Handle delivery confirmations")
+            output.append("4. Process any returns/exchanges")
+            
+            # Error handling
+            output.append(f"\n## Error Handling")
+            output.append("### Common Issues")
+            output.append("- Supplier out of stock: Notify customer, offer alternatives")
+            output.append("- Payment issues: Hold fulfillment until resolved")
+            output.append("- Shipping address problems: Contact customer for correction")
+            output.append("- Supplier delays: Update customer with new timeline")
+            
+            output.append("### Recovery Actions")
+            output.append("- Maintain order status history")
+            output.append("- Log all supplier communications")
+            output.append("- Implement automatic retry mechanisms")
+            output.append("- Escalate unresolved issues after 24 hours")
+            
+            # Performance metrics
+            output.append(f"\n## Performance Tracking")
+            output.append("### Key Metrics")
+            output.append("- Order processing time (target: < 5 minutes)")
+            output.append("- Supplier confirmation rate (target: > 95%)")
+            output.append("- Shipping accuracy (target: > 98%)")
+            output.append("- Customer satisfaction (track via reviews)")
+            
+            return "\n".join(output)
+            
+        except Exception as e:
+            logger.error(f"Error optimizing order fulfillment: {e}")
+            return f"Error optimizing order fulfillment: {str(e)}" 

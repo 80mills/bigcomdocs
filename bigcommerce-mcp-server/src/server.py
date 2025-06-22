@@ -136,6 +136,55 @@ class BigCommerceMCPServer:
                         },
                         "required": ["operation_type"]
                     }
+                ),
+                Tool(
+                    name="optimize_pricing_across_channels",
+                    description="Optimize BigCommerce pricing based on MAP, cost, and dropshipping requirements",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "product_data": {"type": "object", "description": "Product information including current price"},
+                            "map_pricing": {"type": "object", "description": "MAP pricing information"},
+                            "cost_data": {"type": "object", "description": "Cost information for pricing calculations"}
+                        },
+                        "required": ["product_data"]
+                    }
+                ),
+                Tool(
+                    name="sync_inventory_strategy",
+                    description="Recommend BigCommerce inventory sync strategy for dropshipping",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "supplier_inventory": {"type": "object", "description": "Current supplier inventory levels"},
+                            "current_bc_inventory": {"type": "object", "description": "Current BigCommerce inventory levels"}
+                        },
+                        "required": ["supplier_inventory"]
+                    }
+                ),
+                Tool(
+                    name="handle_stockout_scenario",
+                    description="Handle BigCommerce product stockouts in dropshipping scenario",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "out_of_stock_products": {"type": "array", "description": "List of product IDs that are out of stock"},
+                            "alternative_options": {"type": "object", "description": "Alternative supplier options for products"}
+                        },
+                        "required": ["out_of_stock_products"]
+                    }
+                ),
+                Tool(
+                    name="optimize_order_fulfillment",
+                    description="Optimize BigCommerce order processing for dropshipping fulfillment",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "order_data": {"type": "object", "description": "Order information including items and customer data"},
+                            "fulfillment_options": {"type": "object", "description": "Available fulfillment options and supplier information"}
+                        },
+                        "required": ["order_data"]
+                    }
                 )
             ])
             
@@ -228,6 +277,14 @@ class BigCommerceMCPServer:
                     result = await self.api_tools.recommend_api_for_use_case(**arguments)
                 elif name == "get_bulk_operation_guide":
                     result = await self.api_tools.get_bulk_operation_guide(**arguments)
+                elif name == "optimize_pricing_across_channels":
+                    result = await self.api_tools.optimize_pricing_across_channels(**arguments)
+                elif name == "sync_inventory_strategy":
+                    result = await self.api_tools.sync_inventory_strategy(**arguments)
+                elif name == "handle_stockout_scenario":
+                    result = await self.api_tools.handle_stockout_scenario(**arguments)
+                elif name == "optimize_order_fulfillment":
+                    result = await self.api_tools.optimize_order_fulfillment(**arguments)
                 elif name == "search_documentation":
                     result = await self.documentation_tools.search_documentation(**arguments)
                 elif name == "get_documentation_section":
