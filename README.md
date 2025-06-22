@@ -38,7 +38,7 @@ A high-performance Model Context Protocol (MCP) server for BigCommerce API docum
 ## 📦 Quick Deploy
 
 ### One-Click Deploy
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/bigcommerce/bigcomdocs)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/80mills/bigcomdocs)
 
 ### Manual Deploy
 ```bash
@@ -233,7 +233,7 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ## 🆘 Support
 
-- **Issues**: [GitHub Issues](https://github.com/bigcommerce/bigcomdocs/issues)
+- **Issues**: [GitHub Issues](https://github.com/80mills/bigcomdocs/issues)
 - **Documentation**: [BigCommerce Developer Portal](https://developer.bigcommerce.com/)
 - **Community**: [BigCommerce Discord](https://discord.gg/bigcommerce)
 

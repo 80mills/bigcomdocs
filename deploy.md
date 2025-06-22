@@ -226,6 +226,6 @@ jobs:
 ## 🆘 Support
 
 For issues and questions:
-- GitHub Issues: [Repository Issues](https://github.com/bigcommerce/bigcomdocs/issues)
+- GitHub Issues: [Repository Issues](https://github.com/80mills/bigcomdocs/issues)
 - Documentation: [Developer Portal](https://developer.bigcommerce.com/)
 - Community: [BigCommerce Discord](https://discord.gg/bigcommerce) 
