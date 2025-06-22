@@ -31,11 +31,11 @@
   ],
   "functions": {
     "api/mcp.ts": {
-      "maxDuration": 180,
+      "maxDuration": 60,
       "memory": 1024
     },
     "api/sse.ts": {
-      "maxDuration": 300,
+      "maxDuration": 60,
       "memory": 512
     },
     "api/health.ts": {
