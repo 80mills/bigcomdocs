@@ -5,7 +5,7 @@ This guide shows you how to connect your n8n instance to the BigCommerce MCP (Mo
 
 ## Prerequisites
 - n8n instance running
-- BigCommerce MCP server deployed (already done at: `https://mcpserverbigcommerce-3fwmkshgl-80mills-projects.vercel.app`)
+- BigCommerce MCP server deployed (already done at: `https://mcpserverbigcommerce-80mills-projects.vercel.app`)
 
 ## Available Endpoints
 
@@ -34,7 +34,7 @@ In your n8n workflow, add HTTP Request nodes to communicate with the MCP server:
 ```json
 {
   "httpMethod": "POST",
-  "url": "https://mcpserverbigcommerce-3fwmkshgl-80mills-projects.vercel.app/api/mcp",
+  "url": "https://mcpserverbigcommerce-80mills-projects.vercel.app/api/mcp",
   "headers": {
     "Content-Type": "application/json"
   },
@@ -51,7 +51,7 @@ In your n8n workflow, add HTTP Request nodes to communicate with the MCP server:
 ```json
 {
   "httpMethod": "POST",
-  "url": "https://mcpserverbigcommerce-3fwmkshgl-80mills-projects.vercel.app/api/mcp",
+  "url": "https://mcpserverbigcommerce-80mills-projects.vercel.app/api/mcp",
   "headers": {
     "Content-Type": "application/json"
   },
@@ -73,7 +73,7 @@ In your n8n workflow, add HTTP Request nodes to communicate with the MCP server:
 ```json
 {
   "httpMethod": "POST",
-  "url": "https://mcpserverbigcommerce-3fwmkshgl-80mills-projects.vercel.app/api/mcp",
+  "url": "https://mcpserverbigcommerce-80mills-projects.vercel.app/api/mcp",
   "headers": {
     "Content-Type": "application/json"
   },
@@ -103,7 +103,7 @@ Use n8n's HTTP Request node to establish an SSE connection:
 ```json
 {
   "httpMethod": "GET",
-  "url": "https://mcpserverbigcommerce-3fwmkshgl-80mills-projects.vercel.app/api/sse",
+  "url": "https://mcpserverbigcommerce-80mills-projects.vercel.app/api/sse",
   "headers": {
     "Accept": "text/event-stream",
     "Cache-Control": "no-cache"
@@ -226,7 +226,7 @@ Use the `n8n-mcp-config.json` file to configure your MCP server connection.
 ```javascript
 // n8n Code node
 const mcpResponse = await $http.post({
-  url: 'https://mcpserverbigcommerce-3fwmkshgl-80mills-projects.vercel.app/api/mcp',
+  url: 'https://mcpserverbigcommerce-80mills-projects.vercel.app/api/mcp',
   headers: { 'Content-Type': 'application/json' },
   body: {
     jsonrpc: '2.0',
@@ -251,7 +251,7 @@ const builtRequest = mcpResponse.data.result.content;
 ```javascript
 // Search for specific documentation
 const docResponse = await $http.post({
-  url: 'https://mcpserverbigcommerce-3fwmkshgl-80mills-projects.vercel.app/api/mcp',
+  url: 'https://mcpserverbigcommerce-80mills-projects.vercel.app/api/mcp',
   headers: { 'Content-Type': 'application/json' },
   body: {
     jsonrpc: '2.0',
@@ -269,7 +269,7 @@ const docResponse = await $http.post({
 ```javascript
 // Monitor server health via SSE
 const sseResponse = await $http.get({
-  url: 'https://mcpserverbigcommerce-3fwmkshgl-80mills-projects.vercel.app/api/sse',
+  url: 'https://mcpserverbigcommerce-80mills-projects.vercel.app/api/sse',
   headers: { 'Accept': 'text/event-stream' }
 });
 
@@ -294,7 +294,7 @@ events.forEach(event => {
 ```javascript
 try {
   const response = await $http.post({
-    url: 'https://mcpserverbigcommerce-3fwmkshgl-80mills-projects.vercel.app/api/mcp',
+    url: 'https://mcpserverbigcommerce-80mills-projects.vercel.app/api/mcp',
     headers: { 'Content-Type': 'application/json' },
     body: mcpRequest
   });
@@ -314,19 +314,19 @@ try {
 
 ### 1. Test Health Endpoint
 ```bash
-curl https://mcpserverbigcommerce-3fwmkshgl-80mills-projects.vercel.app/health
+curl https://mcpserverbigcommerce-80mills-projects.vercel.app/health
 ```
 
 ### 2. Test MCP Endpoint
 ```bash
-curl -X POST https://mcpserverbigcommerce-3fwmkshgl-80mills-projects.vercel.app/api/mcp \
+curl -X POST https://mcpserverbigcommerce-80mills-projects.vercel.app/api/mcp \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
 ```
 
 ### 3. Test SSE Endpoint
 ```bash
-curl -N https://mcpserverbigcommerce-3fwmkshgl-80mills-projects.vercel.app/api/sse \
+curl -N https://mcpserverbigcommerce-80mills-projects.vercel.app/api/sse \
   -H "Accept: text/event-stream"
 ```
 
