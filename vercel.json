@@ -10,6 +10,14 @@
       }
     },
     {
+      "src": "/api/sse",
+      "dest": "/api/sse.ts",
+      "headers": {
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive"
+      }
+    },
+    {
       "src": "/health",
       "dest": "/api/health.ts",
       "headers": {
@@ -25,6 +33,10 @@
     "api/mcp.ts": {
       "maxDuration": 30,
       "memory": 1024
+    },
+    "api/sse.ts": {
+      "maxDuration": 60,
+      "memory": 512
     },
     "api/health.ts": {
       "maxDuration": 5,
