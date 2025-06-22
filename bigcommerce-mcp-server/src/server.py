@@ -111,6 +111,31 @@ class BigCommerceMCPServer:
                     name="list_api_categories",
                     description="List all available API categories",
                     inputSchema={"type": "object", "properties": {}}
+                ),
+                Tool(
+                    name="recommend_api_for_use_case",
+                    description="Intelligently recommend the best API for a specific use case (e.g., 'querying products', 'updating inventory for hundreds of items')",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "use_case": {"type": "string", "description": "Description of what you want to accomplish"},
+                            "operation_type": {"type": "string", "description": "Type of operation (query, update, create, delete)", "enum": ["query", "update", "create", "delete"]},
+                            "scale": {"type": "string", "description": "Scale of operation (single, bulk, batch)", "enum": ["single", "bulk", "batch"]}
+                        },
+                        "required": ["use_case"]
+                    }
+                ),
+                Tool(
+                    name="get_bulk_operation_guide",
+                    description="Get specific guidance for bulk operations (e.g., updating hundreds of products, managing inventory at scale)",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "operation_type": {"type": "string", "description": "Type of bulk operation (e.g., 'product updates', 'inventory management')"},
+                            "item_count": {"type": "integer", "description": "Estimated number of items to process"}
+                        },
+                        "required": ["operation_type"]
+                    }
                 )
             ])
             
@@ -199,6 +224,10 @@ class BigCommerceMCPServer:
                     result = await self.api_tools.get_endpoint_details(**arguments)
                 elif name == "list_api_categories":
                     result = await self.api_tools.list_categories()
+                elif name == "recommend_api_for_use_case":
+                    result = await self.api_tools.recommend_api_for_use_case(**arguments)
+                elif name == "get_bulk_operation_guide":
+                    result = await self.api_tools.get_bulk_operation_guide(**arguments)
                 elif name == "search_documentation":
                     result = await self.documentation_tools.search_documentation(**arguments)
                 elif name == "get_documentation_section":
