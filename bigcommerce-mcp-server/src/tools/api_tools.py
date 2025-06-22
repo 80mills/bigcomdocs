@@ -1,18 +1,25 @@
-"""API tools for the BigCommerce MCP server"""
+"""API tools for the BigCommerce MCP server - Optimized with caching and API execution"""
 
 import json
 import logging
+import aiohttp
 from typing import Dict, List, Any, Optional
+from urllib.parse import urljoin
 
 logger = logging.getLogger(__name__)
 
 
 class APITools:
-    """Tools for working with BigCommerce API specifications"""
+    """Tools for working with BigCommerce API specifications - Optimized"""
     
-    def __init__(self, openapi_parser, search_indexer):
+    def __init__(self, openapi_parser, search_indexer, cache_manager):
         self.openapi_parser = openapi_parser
         self.search_indexer = search_indexer
+        self.cache_manager = cache_manager
+        
+        # HTTP session for API calls
+        self._session = None
+        
         # Define common use case patterns for agentic API selection
         self.use_case_patterns = {
             # Product management
@@ -183,36 +190,62 @@ class APITools:
             }
         }
     
+    async def _get_session(self):
+        """Get or create aiohttp session"""
+        if self._session is None:
+            self._session = aiohttp.ClientSession()
+        return self._session
+    
+    async def cleanup(self):
+        """Cleanup resources"""
+        if self._session:
+            await self._session.close()
+    
+    @property
+    def cache_decorator(self):
+        """Get cache decorator for methods"""
+        return self.cache_manager.cache_key
+    
     async def search_endpoints(self, query: str, method: Optional[str] = None, api_category: Optional[str] = None) -> str:
         """Search for API endpoints across all BigCommerce APIs"""
+        # Check cache first
+        cache_key = f"search_endpoints:{query}:{method}:{api_category}"
+        cached_result = await self.cache_manager.get(cache_key)
+        if cached_result:
+            return cached_result
+        
         try:
-            # Use the OpenAPI parser to search endpoints
-            results = self.openapi_parser.search_endpoints(query, method, api_category)
+            # Use the search indexer for fast results
+            results = await self.openapi_parser.search_endpoints(query, method, api_category)
             
             if not results:
-                return f"No endpoints found matching query: '{query}'"
+                response = f"No endpoints found matching query: '{query}'"
+            else:
+                # Format the results
+                output = [f"Found {len(results)} endpoint(s) matching '{query}':\n"]
+                
+                for result in results[:10]:  # Limit to top 10 results
+                    output.append(f"## {result['api_name'].upper()} API")
+                    output.append(f"**{result['method']} {result['path']}**")
+                    
+                    if result.get('summary'):
+                        output.append(f"Summary: {result['summary']}")
+                    
+                    if result.get('description'):
+                        # Truncate long descriptions
+                        desc = result['description'][:200] + "..." if len(result['description']) > 200 else result['description']
+                        output.append(f"Description: {desc}")
+                    
+                    if result.get('tags'):
+                        output.append(f"Tags: {', '.join(result['tags'])}")
+                    
+                    output.append("")  # Empty line for spacing
+                
+                response = "\n".join(output)
             
-            # Format the results
-            output = [f"Found {len(results)} endpoint(s) matching '{query}':\n"]
-            
-            for result in results[:10]:  # Limit to top 10 results
-                output.append(f"## {result['api_name'].upper()} API")
-                output.append(f"**{result['method']} {result['path']}**")
-                
-                if result.get('summary'):
-                    output.append(f"Summary: {result['summary']}")
-                
-                if result.get('description'):
-                    # Truncate long descriptions
-                    desc = result['description'][:200] + "..." if len(result['description']) > 200 else result['description']
-                    output.append(f"Description: {desc}")
-                
-                if result.get('tags'):
-                    output.append(f"Tags: {', '.join(result['tags'])}")
-                
-                output.append("")  # Empty line for spacing
-            
-            return "\n".join(output)
+            # Cache the result
+            await self.cache_manager.set(cache_key, response, ttl=3600)
+            return response
             
         except Exception as e:
             logger.error(f"Error searching endpoints: {e}")
@@ -220,67 +253,71 @@ class APITools:
     
     async def get_api_spec(self, api_name: str) -> str:
         """Get complete OpenAPI specification for a specific API"""
+        # Check cache first
+        cache_key = f"api_spec:{api_name}"
+        cached_result = await self.cache_manager.get(cache_key)
+        if cached_result:
+            return cached_result
+        
         try:
-            spec_data = self.openapi_parser.get_spec(api_name)
+            spec_data = await self.openapi_parser.get_spec(api_name)
             
             if not spec_data:
-                available_apis = list(self.openapi_parser.specs.keys())
-                return f"API '{api_name}' not found. Available APIs: {', '.join(available_apis)}"
-            
-            spec = spec_data['spec']
-            info = spec.get('info', {})
-            
-            output = [f"# {info.get('title', api_name.title())} API Specification\n"]
-            
-            if info.get('version'):
-                output.append(f"**Version:** {info['version']}")
-            
-            if info.get('description'):
-                output.append(f"**Description:** {info['description']}")
-            
-            # Server information
-            servers = spec.get('servers', [])
-            if servers:
-                output.append(f"**Base URL:** {servers[0].get('url', 'N/A')}")
-            
-            # Authentication
-            security_schemes = spec.get('components', {}).get('securitySchemes', {})
-            if security_schemes:
-                output.append(f"**Authentication:** {', '.join(security_schemes.keys())}")
-            
-            # Endpoints summary
-            endpoints = spec_data.get('endpoints', [])
-            if endpoints:
-                output.append(f"\n## Endpoints ({len(endpoints)} total)")
+                # List available APIs from file map if using lazy loading
+                if hasattr(self.openapi_parser, '_file_map'):
+                    available_apis = list(self.openapi_parser._file_map.keys())[:10]
+                else:
+                    available_apis = list(self.openapi_parser.specs.keys())[:10]
+                response = f"API '{api_name}' not found. Available APIs: {', '.join(available_apis)}..."
+            else:
+                spec = spec_data['spec']
+                info = spec.get('info', {})
                 
-                # Group by tags
-                endpoints_by_tag = {}
-                for endpoint in endpoints:
-                    tags = endpoint.get('tags', ['Untagged'])
-                    for tag in tags:
-                        if tag not in endpoints_by_tag:
-                            endpoints_by_tag[tag] = []
-                        endpoints_by_tag[tag].append(endpoint)
+                output = [f"# {info.get('title', api_name.title())} API Specification\n"]
                 
-                for tag, tag_endpoints in endpoints_by_tag.items():
-                    output.append(f"\n### {tag}")
-                    for endpoint in tag_endpoints[:5]:  # Limit per tag
-                        output.append(f"- **{endpoint['method']} {endpoint['path']}** - {endpoint.get('summary', 'No summary')}")
+                if info.get('version'):
+                    output.append(f"**Version:** {info['version']}")
+                
+                if info.get('description'):
+                    output.append(f"**Description:** {info['description']}")
+                
+                # Server information
+                servers = spec.get('servers', [])
+                if servers:
+                    output.append(f"**Base URL:** {servers[0].get('url', 'N/A')}")
+                
+                # Authentication
+                security_schemes = spec.get('components', {}).get('securitySchemes', {})
+                if security_schemes:
+                    output.append(f"**Authentication:** {', '.join(security_schemes.keys())}")
+                
+                # Endpoints summary
+                endpoints = spec_data.get('endpoints', [])
+                if endpoints:
+                    output.append(f"\n## Endpoints ({len(endpoints)} total)")
                     
-                    if len(tag_endpoints) > 5:
-                        output.append(f"  ... and {len(tag_endpoints) - 5} more endpoints")
-            
-            # Schemas summary
-            schemas = spec_data.get('schemas', {})
-            if schemas:
-                output.append(f"\n## Data Models ({len(schemas)} schemas)")
-                for schema_name in list(schemas.keys())[:10]:  # Show first 10 schemas
-                    output.append(f"- {schema_name}")
+                    # Group by tags
+                    endpoints_by_tag = {}
+                    for endpoint in endpoints:
+                        tags = endpoint.get('tags', ['Untagged'])
+                        for tag in tags:
+                            if tag not in endpoints_by_tag:
+                                endpoints_by_tag[tag] = []
+                            endpoints_by_tag[tag].append(endpoint)
+                    
+                    for tag, tag_endpoints in endpoints_by_tag.items():
+                        output.append(f"\n### {tag}")
+                        for endpoint in tag_endpoints[:5]:  # Limit per tag
+                            output.append(f"- **{endpoint['method']} {endpoint['path']}** - {endpoint.get('summary', 'No summary')}")
+                        
+                        if len(tag_endpoints) > 5:
+                            output.append(f"  ... and {len(tag_endpoints) - 5} more endpoints")
                 
-                if len(schemas) > 10:
-                    output.append(f"  ... and {len(schemas) - 10} more schemas")
+                response = "\n".join(output)
             
-            return "\n".join(output)
+            # Cache the result
+            await self.cache_manager.set(cache_key, response, ttl=7200)
+            return response
             
         except Exception as e:
             logger.error(f"Error getting API spec: {e}")
@@ -288,8 +325,14 @@ class APITools:
     
     async def get_endpoint_details(self, api_name: str, endpoint_path: str, method: str) -> str:
         """Get detailed information about a specific API endpoint"""
+        # Check cache
+        cache_key = f"endpoint_details:{api_name}:{method}:{endpoint_path}"
+        cached_result = await self.cache_manager.get(cache_key)
+        if cached_result:
+            return cached_result
+        
         try:
-            endpoint_data = self.openapi_parser.get_endpoint_details(api_name, endpoint_path, method)
+            endpoint_data = await self.openapi_parser.get_endpoint_details(api_name, endpoint_path, method)
             
             if not endpoint_data:
                 return f"Endpoint not found: {method} {endpoint_path} in {api_name} API"
@@ -340,20 +383,197 @@ class APITools:
                     desc = response.get('description', 'No description')
                     output.append(f"- **{status_code}:** {desc}")
             
-            # Security
-            security = endpoint_data.get('security', [])
-            if security:
-                output.append("\n## Authentication")
-                for sec in security:
-                    for sec_name, scopes in sec.items():
-                        scope_text = f" (scopes: {', '.join(scopes)})" if scopes else ""
-                        output.append(f"- {sec_name}{scope_text}")
+            response = "\n".join(output)
             
-            return "\n".join(output)
+            # Cache the result
+            await self.cache_manager.set(cache_key, response, ttl=7200)
+            return response
             
         except Exception as e:
             logger.error(f"Error getting endpoint details: {e}")
             return f"Error getting endpoint details: {str(e)}"
+    
+    async def execute_api_call(self, store_hash: str, access_token: str, method: str, endpoint: str, 
+                              params: Optional[Dict] = None, body: Optional[Dict] = None, 
+                              api_version: str = "v3") -> str:
+        """Execute a BigCommerce API call"""
+        try:
+            # Build the URL
+            base_url = f"https://api.bigcommerce.com/stores/{store_hash}/{api_version}"
+            url = urljoin(base_url, endpoint.lstrip('/'))
+            
+            # Prepare headers
+            headers = {
+                'X-Auth-Token': access_token,
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            }
+            
+            # Get session
+            session = await self._get_session()
+            
+            # Make the request
+            async with session.request(
+                method=method.upper(),
+                url=url,
+                headers=headers,
+                params=params,
+                json=body if body and method.upper() in ['POST', 'PUT', 'PATCH'] else None
+            ) as response:
+                response_data = await response.text()
+                
+                # Try to parse as JSON
+                try:
+                    response_json = json.loads(response_data)
+                    response_formatted = json.dumps(response_json, indent=2)
+                except:
+                    response_formatted = response_data
+                
+                output = [f"# API Call Result\n"]
+                output.append(f"**Method:** {method.upper()}")
+                output.append(f"**URL:** {url}")
+                output.append(f"**Status:** {response.status} {response.reason}")
+                
+                output.append("\n## Response Headers")
+                for key, value in response.headers.items():
+                    if key.lower() in ['x-rate-limit-requests-left', 'x-rate-limit-time-reset-ms', 'content-type']:
+                        output.append(f"- **{key}:** {value}")
+                
+                output.append("\n## Response Body")
+                output.append("```json")
+                output.append(response_formatted[:2000])  # Limit response size
+                if len(response_formatted) > 2000:
+                    output.append("... (truncated)")
+                output.append("```")
+                
+                if response.status >= 400:
+                    output.append("\n## Error Details")
+                    output.append(f"The request failed with status code {response.status}.")
+                    if response_json and isinstance(response_json, dict):
+                        if 'title' in response_json:
+                            output.append(f"**Error:** {response_json['title']}")
+                        if 'errors' in response_json:
+                            output.append(f"**Details:** {json.dumps(response_json['errors'], indent=2)}")
+                
+                return "\n".join(output)
+                
+        except aiohttp.ClientError as e:
+            logger.error(f"HTTP error executing API call: {e}")
+            return f"HTTP Error executing API call: {str(e)}"
+        except Exception as e:
+            logger.error(f"Error executing API call: {e}")
+            return f"Error executing API call: {str(e)}"
+    
+    async def build_http_request(self, api_name: str, endpoint_path: str, method: str, 
+                                parameters: Optional[Dict] = None, body: Optional[Dict] = None,
+                                store_hash: Optional[str] = None) -> str:
+        """Build a complete HTTP request for BigCommerce API"""
+        try:
+            # Get API spec to understand the endpoint
+            api_data = await self.openapi_parser.get_spec(api_name)
+            api_version = "v3"  # Default to v3
+            
+            if api_data:
+                # Try to determine API version from spec
+                servers = api_data['spec'].get('servers', [])
+                if servers and 'v2' in servers[0].get('url', ''):
+                    api_version = "v2"
+            
+            # Build base URL
+            store_hash_placeholder = store_hash or "{store_hash}"
+            base_url = f"https://api.bigcommerce.com/stores/{store_hash_placeholder}/{api_version}"
+            
+            # Process path parameters
+            processed_path = endpoint_path
+            if parameters:
+                for param_name, param_value in parameters.items():
+                    placeholder = f"{{{param_name}}}"
+                    if placeholder in endpoint_path:
+                        processed_path = processed_path.replace(placeholder, str(param_value))
+            
+            full_url = urljoin(base_url, processed_path.lstrip('/'))
+            
+            output = [f"# HTTP Request Builder\n"]
+            output.append(f"## {method.upper()} {processed_path}")
+            output.append(f"**API:** {api_name}")
+            output.append(f"**Version:** {api_version}")
+            
+            output.append("\n## cURL Example")
+            output.append("```bash")
+            curl_cmd = [f"curl -X {method.upper()} \\"]
+            curl_cmd.append(f'  "{full_url}" \\')
+            curl_cmd.append('  -H "X-Auth-Token: {access_token}" \\')
+            curl_cmd.append('  -H "Accept: application/json" \\')
+            
+            if method.upper() in ['POST', 'PUT', 'PATCH'] and body:
+                curl_cmd.append('  -H "Content-Type: application/json" \\')
+                curl_cmd.append(f"  -d '{json.dumps(body, separators=(',', ':'))}'")
+            else:
+                curl_cmd[-1] = curl_cmd[-1].rstrip(' \\')  # Remove trailing backslash
+            
+            output.extend(curl_cmd)
+            output.append("```")
+            
+            output.append("\n## Python Example")
+            output.append("```python")
+            output.append("import requests")
+            output.append("")
+            output.append(f'url = "{full_url}"')
+            output.append("headers = {")
+            output.append('    "X-Auth-Token": "{access_token}",')
+            output.append('    "Accept": "application/json",')
+            if method.upper() in ['POST', 'PUT', 'PATCH']:
+                output.append('    "Content-Type": "application/json"')
+            output.append("}")
+            
+            if body:
+                output.append("")
+                output.append("data = " + json.dumps(body, indent=4))
+                output.append("")
+                output.append(f'response = requests.{method.lower()}(url, headers=headers, json=data)')
+            else:
+                output.append("")
+                output.append(f'response = requests.{method.lower()}(url, headers=headers)')
+            
+            output.append("print(response.json())")
+            output.append("```")
+            
+            output.append("\n## JavaScript Example")
+            output.append("```javascript")
+            output.append("const options = {")
+            output.append(f'  method: "{method.upper()}",')
+            output.append("  headers: {")
+            output.append('    "X-Auth-Token": "{access_token}",')
+            output.append('    "Accept": "application/json",')
+            if method.upper() in ['POST', 'PUT', 'PATCH']:
+                output.append('    "Content-Type": "application/json"')
+            output.append("  }")
+            
+            if body:
+                output.append(f",  body: JSON.stringify({json.dumps(body, indent=2)})")
+            
+            output.append("};")
+            output.append("")
+            output.append(f'fetch("{full_url}", options)')
+            output.append("  .then(response => response.json())")
+            output.append("  .then(data => console.log(data))")
+            output.append("  .catch(error => console.error('Error:', error));")
+            output.append("```")
+            
+            output.append("\n## Required Parameters")
+            output.append("- **store_hash**: Your BigCommerce store hash")
+            output.append("- **access_token**: Your API access token")
+            
+            if parameters:
+                output.append("\n## Path Parameters")
+                for param_name, param_value in parameters.items():
+                    output.append(f"- **{param_name}**: {param_value}")
+            
+            return "\n".join(output)
+            
+        except Exception as e:
+            logger.error(f"Error building HTTP request: {e}")
+            return f"Error building HTTP request: {str(e)}"
     
     async def list_categories(self) -> str:
         """List all available API categories"""
@@ -1001,159 +1221,6 @@ class APITools:
         except Exception as e:
             logger.error(f"Error optimizing order fulfillment: {e}")
             return f"Error optimizing order fulfillment: {str(e)}"
-    
-    async def build_http_request(self, api_name: str, endpoint_path: str, method: str, parameters: Optional[Dict] = None, body: Optional[Dict] = None, auth_type: str = "bearer") -> str:
-        """Build a complete HTTP request for BigCommerce API based on OpenAPI spec"""
-        try:
-            # Get the API spec and endpoint details
-            api_spec = self.openapi_parser.get_spec(api_name)
-            if not api_spec:
-                return f"API '{api_name}' not found. Available APIs: {', '.join(self.openapi_parser.specs.keys())}"
-            
-            endpoint_details = self.openapi_parser.get_endpoint_details(api_name, endpoint_path, method)
-            if not endpoint_details:
-                return f"Endpoint '{method} {endpoint_path}' not found in API '{api_name}'"
-            
-            # Build the request
-            output = [f"# HTTP Request for {api_name.upper()} API\n"]
-            output.append(f"**Endpoint:** {method.upper()} {endpoint_path}\n")
-            
-            # Base URL
-            base_url = "https://api.bigcommerce.com/stores/{store_hash}"
-            output.append(f"**Base URL:** {base_url}\n")
-            
-            # Full URL with path parameters
-            full_url = f"{base_url}{endpoint_path}"
-            if parameters:
-                path_params = {k: v for k, v in parameters.items() if k in endpoint_path}
-                for param, value in path_params.items():
-                    full_url = full_url.replace(f"{{{param}}}", str(value))
-            output.append(f"**Full URL:** {full_url}\n")
-            
-            # Headers
-            output.append("## Headers")
-            output.append("```")
-            output.append("Content-Type: application/json")
-            if auth_type == "bearer":
-                output.append("Authorization: Bearer {access_token}")
-            elif auth_type == "basic":
-                output.append("Authorization: Basic {base64_encoded_credentials}")
-            output.append("Accept: application/json")
-            output.append("```\n")
-            
-            # Query Parameters
-            if parameters:
-                query_params = {k: v for k, v in parameters.items() if k not in endpoint_path}
-                if query_params:
-                    output.append("## Query Parameters")
-                    output.append("```json")
-                    output.append(json.dumps(query_params, indent=2))
-                    output.append("```\n")
-            
-            # Request Body
-            if body and method.upper() in ["POST", "PUT", "PATCH"]:
-                output.append("## Request Body")
-                output.append("```json")
-                output.append(json.dumps(body, indent=2))
-                output.append("```\n")
-            
-            # Example with curl
-            output.append("## cURL Example")
-            curl_cmd = f"curl -X {method.upper()} \\"
-            curl_cmd += f"\n  '{full_url}' \\"
-            curl_cmd += "\n  -H 'Content-Type: application/json' \\"
-            if auth_type == "bearer":
-                curl_cmd += "\n  -H 'Authorization: Bearer {access_token}' \\"
-            curl_cmd += "\n  -H 'Accept: application/json'"
-            
-            if query_params:
-                query_string = "&".join([f"{k}={v}" for k, v in query_params.items()])
-                curl_cmd += f" \\\n  -G -d '{query_string}'"
-            
-            if body and method.upper() in ["POST", "PUT", "PATCH"]:
-                curl_cmd += f" \\\n  -d '{json.dumps(body)}'"
-            
-            output.append("```bash")
-            output.append(curl_cmd)
-            output.append("```\n")
-            
-            # JavaScript/Node.js Example
-            output.append("## JavaScript/Node.js Example")
-            output.append("```javascript")
-            output.append("const response = await fetch(")
-            output.append(f"  '{full_url}', {{")
-            output.append("    method: '" + method.upper() + "',")
-            output.append("    headers: {")
-            output.append("      'Content-Type': 'application/json',")
-            if auth_type == "bearer":
-                output.append("      'Authorization': 'Bearer ' + accessToken,")
-            output.append("      'Accept': 'application/json'")
-            output.append("    },")
-            
-            if body and method.upper() in ["POST", "PUT", "PATCH"]:
-                output.append("    body: JSON.stringify(")
-                output.append("      " + json.dumps(body, indent=6))
-                output.append("    )")
-            
-            output.append("  }")
-            output.append(");")
-            output.append("")
-            output.append("const data = await response.json();")
-            output.append("```\n")
-            
-            # Python Example
-            output.append("## Python Example")
-            output.append("```python")
-            output.append("import requests")
-            output.append("")
-            output.append("headers = {")
-            output.append("    'Content-Type': 'application/json',")
-            if auth_type == "bearer":
-                output.append("    'Authorization': 'Bearer ' + access_token,")
-            output.append("    'Accept': 'application/json'")
-            output.append("}")
-            output.append("")
-            
-            if body and method.upper() in ["POST", "PUT", "PATCH"]:
-                output.append("data = " + json.dumps(body, indent=4))
-                output.append("")
-            
-            output.append(f"response = requests.{method.lower()}(")
-            output.append(f"    '{full_url}',")
-            if body and method.upper() in ["POST", "PUT", "PATCH"]:
-                output.append("    json=data,")
-            output.append("    headers=headers")
-            output.append(")")
-            output.append("")
-            output.append("data = response.json()")
-            output.append("```\n")
-            
-            # Endpoint Documentation
-            if endpoint_details.get('summary'):
-                output.append(f"## Endpoint Summary")
-                output.append(f"{endpoint_details['summary']}\n")
-            
-            if endpoint_details.get('description'):
-                output.append(f"## Description")
-                output.append(f"{endpoint_details['description']}\n")
-            
-            # Parameters Documentation
-            if endpoint_details.get('parameters'):
-                output.append("## Parameters")
-                for param in endpoint_details['parameters']:
-                    param_name = param.get('name', 'Unknown')
-                    param_type = param.get('in', 'unknown')
-                    param_required = param.get('required', False)
-                    param_desc = param.get('description', 'No description')
-                    
-                    output.append(f"- **{param_name}** ({param_type}){' (required)' if param_required else ' (optional)'}: {param_desc}")
-                output.append("")
-            
-            return "\n".join(output)
-            
-        except Exception as e:
-            logger.error(f"Error building HTTP request: {e}")
-            return f"Error building HTTP request: {str(e)}"
     
     async def generate_api_client_code(self, api_name: str, language: str = "python") -> str:
         """Generate API client code for a specific BigCommerce API"""

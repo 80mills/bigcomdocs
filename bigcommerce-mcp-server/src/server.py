@@ -1,9 +1,11 @@
-"""Main BigCommerce MCP Server implementation"""
+"""Main BigCommerce MCP Server implementation - Optimized Version"""
 
 import asyncio
 import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
+from functools import lru_cache
+import time
 
 from mcp.server import Server
 from mcp.server.models import InitializationOptions
@@ -26,6 +28,9 @@ from .indexers.content_indexer import ContentIndexer
 from .tools.api_tools import APITools
 from .tools.documentation_tools import DocumentationTools
 from .tools.schema_tools import SchemaTools
+from .tools.quick_lookup import QuickLookupTools
+from .utils.cache_manager import CacheManager
+from .utils.pattern_matcher import PatternMatcher
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -33,31 +38,38 @@ logger = logging.getLogger(__name__)
 
 
 class BigCommerceMCPServer:
-    """BigCommerce Model Context Protocol Server"""
+    """BigCommerce Model Context Protocol Server - Performance Optimized"""
     
     def __init__(self, docs_path: Path):
         self.docs_path = docs_path
         self.config = Config(docs_path=docs_path)
         self.server = Server("bigcommerce-docs")
         
-        # Initialize parsers with correct paths
-        self.openapi_parser = OpenAPIParser(docs_path / "reference")
-        self.mdx_parser = MDXParser(docs_path / "docs")
-        self.schema_parser = SchemaParser(docs_path / "models")
+        # Initialize cache manager
+        self.cache_manager = CacheManager()
         
-        # Initialize indexers
-        self.search_indexer = SearchIndexer()
+        # Initialize pattern matcher for quick query routing
+        self.pattern_matcher = PatternMatcher()
+        
+        # Initialize parsers with lazy loading
+        self.openapi_parser = OpenAPIParser(docs_path / "reference", lazy_load=True)
+        self.mdx_parser = MDXParser(docs_path / "docs", lazy_load=True)
+        self.schema_parser = SchemaParser(docs_path / "models", lazy_load=True)
+        
+        # Initialize indexers (will be populated on demand)
+        self.search_indexer = SearchIndexer(use_inverted_index=True)
         self.content_indexer = ContentIndexer()
         
         # Initialize tools
-        self.api_tools = APITools(self.openapi_parser, self.search_indexer)
-        self.documentation_tools = DocumentationTools(self.mdx_parser, self.search_indexer)
-        self.schema_tools = SchemaTools(self.schema_parser, self.search_indexer)
+        self.quick_lookup = QuickLookupTools(self.cache_manager, self.pattern_matcher)
+        self.api_tools = APITools(self.openapi_parser, self.search_indexer, self.cache_manager)
+        self.documentation_tools = DocumentationTools(self.mdx_parser, self.search_indexer, self.cache_manager)
+        self.schema_tools = SchemaTools(self.schema_parser, self.search_indexer, self.cache_manager)
         
-        # Store parsed data
-        self.api_specs = {}
-        self.documentation = {}
-        self.schemas = {}
+        # Lazy-loaded data stores
+        self._api_specs_loaded = False
+        self._docs_loaded = False
+        self._schemas_loaded = False
         
         self._setup_handlers()
     
@@ -68,6 +80,38 @@ class BigCommerceMCPServer:
         async def handle_list_tools() -> List[Tool]:
             """List all available tools"""
             tools = []
+            
+            # Quick Lookup Tools (Priority for common queries)
+            tools.extend([
+                Tool(
+                    name="quick_api_lookup",
+                    description="Fast lookup for common API queries (inventory, products, orders)",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "query": {"type": "string", "description": "Natural language query about BigCommerce APIs"}
+                        },
+                        "required": ["query"]
+                    }
+                ),
+                Tool(
+                    name="call_api",
+                    description="Execute a BigCommerce API call with authentication",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "store_hash": {"type": "string", "description": "BigCommerce store hash"},
+                            "access_token": {"type": "string", "description": "API access token"},
+                            "method": {"type": "string", "enum": ["GET", "POST", "PUT", "DELETE", "PATCH"]},
+                            "endpoint": {"type": "string", "description": "API endpoint path"},
+                            "params": {"type": "object", "description": "Query parameters"},
+                            "body": {"type": "object", "description": "Request body for POST/PUT/PATCH"},
+                            "api_version": {"type": "string", "description": "API version (v2 or v3)", "default": "v3"}
+                        },
+                        "required": ["store_hash", "access_token", "method", "endpoint"]
+                    }
+                )
+            ])
             
             # API Tools
             tools.extend([
@@ -109,110 +153,19 @@ class BigCommerceMCPServer:
                     }
                 ),
                 Tool(
-                    name="list_api_categories",
-                    description="List all available API categories",
-                    inputSchema={"type": "object", "properties": {}}
-                ),
-                Tool(
-                    name="recommend_api_for_use_case",
-                    description="Intelligently recommend the best API for a specific use case (e.g., 'querying products', 'updating inventory for hundreds of items')",
-                    inputSchema={
-                        "type": "object",
-                        "properties": {
-                            "use_case": {"type": "string", "description": "Description of what you want to accomplish"},
-                            "operation_type": {"type": "string", "description": "Type of operation (query, update, create, delete)", "enum": ["query", "update", "create", "delete"]},
-                            "scale": {"type": "string", "description": "Scale of operation (single, bulk, batch)", "enum": ["single", "bulk", "batch"]}
-                        },
-                        "required": ["use_case"]
-                    }
-                ),
-                Tool(
-                    name="get_bulk_operation_guide",
-                    description="Get specific guidance for bulk operations (e.g., updating hundreds of products, managing inventory at scale)",
-                    inputSchema={
-                        "type": "object",
-                        "properties": {
-                            "operation_type": {"type": "string", "description": "Type of bulk operation (e.g., 'product updates', 'inventory management')"},
-                            "item_count": {"type": "integer", "description": "Estimated number of items to process"}
-                        },
-                        "required": ["operation_type"]
-                    }
-                ),
-                Tool(
-                    name="optimize_pricing_across_channels",
-                    description="Optimize BigCommerce pricing based on MAP, cost, and dropshipping requirements",
-                    inputSchema={
-                        "type": "object",
-                        "properties": {
-                            "product_data": {"type": "object", "description": "Product information including current price"},
-                            "map_pricing": {"type": "object", "description": "MAP pricing information"},
-                            "cost_data": {"type": "object", "description": "Cost information for pricing calculations"}
-                        },
-                        "required": ["product_data"]
-                    }
-                ),
-                Tool(
-                    name="sync_inventory_strategy",
-                    description="Recommend BigCommerce inventory sync strategy for dropshipping",
-                    inputSchema={
-                        "type": "object",
-                        "properties": {
-                            "supplier_inventory": {"type": "object", "description": "Current supplier inventory levels"},
-                            "current_bc_inventory": {"type": "object", "description": "Current BigCommerce inventory levels"}
-                        },
-                        "required": ["supplier_inventory"]
-                    }
-                ),
-                Tool(
-                    name="handle_stockout_scenario",
-                    description="Handle BigCommerce product stockouts in dropshipping scenario",
-                    inputSchema={
-                        "type": "object",
-                        "properties": {
-                            "out_of_stock_products": {"type": "array", "description": "List of product IDs that are out of stock"},
-                            "alternative_options": {"type": "object", "description": "Alternative supplier options for products"}
-                        },
-                        "required": ["out_of_stock_products"]
-                    }
-                ),
-                Tool(
-                    name="optimize_order_fulfillment",
-                    description="Optimize BigCommerce order processing for dropshipping fulfillment",
-                    inputSchema={
-                        "type": "object",
-                        "properties": {
-                            "order_data": {"type": "object", "description": "Order information including items and customer data"},
-                            "fulfillment_options": {"type": "object", "description": "Available fulfillment options and supplier information"}
-                        },
-                        "required": ["order_data"]
-                    }
-                ),
-                Tool(
                     name="build_http_request",
-                    description="Build a complete HTTP request for BigCommerce API with examples in multiple languages",
+                    description="Build a complete HTTP request for BigCommerce API",
                     inputSchema={
                         "type": "object",
                         "properties": {
-                            "api_name": {"type": "string", "description": "Name of the API (e.g., 'catalog', 'orders', 'customers')"},
-                            "endpoint_path": {"type": "string", "description": "API endpoint path (e.g., '/catalog/products')"},
-                            "method": {"type": "string", "description": "HTTP method", "enum": ["GET", "POST", "PUT", "DELETE", "PATCH"]},
-                            "parameters": {"type": "object", "description": "Query parameters and path parameters"},
-                            "body": {"type": "object", "description": "Request body for POST/PUT/PATCH requests"},
-                            "auth_type": {"type": "string", "description": "Authentication type", "enum": ["bearer", "basic"], "default": "bearer"}
+                            "api_name": {"type": "string", "description": "Name of the API"},
+                            "endpoint_path": {"type": "string", "description": "API endpoint path"},
+                            "method": {"type": "string", "enum": ["GET", "POST", "PUT", "DELETE", "PATCH"]},
+                            "parameters": {"type": "object", "description": "Query and path parameters"},
+                            "body": {"type": "object", "description": "Request body"},
+                            "store_hash": {"type": "string", "description": "Store hash for the request"}
                         },
                         "required": ["api_name", "endpoint_path", "method"]
-                    }
-                ),
-                Tool(
-                    name="generate_api_client",
-                    description="Generate complete API client code for a BigCommerce API in Python, JavaScript, or cURL",
-                    inputSchema={
-                        "type": "object",
-                        "properties": {
-                            "api_name": {"type": "string", "description": "Name of the API to generate client for"},
-                            "language": {"type": "string", "description": "Programming language", "enum": ["python", "javascript", "curl"], "default": "python"}
-                        },
-                        "required": ["api_name"]
                     }
                 )
             ])
@@ -226,62 +179,7 @@ class BigCommerceMCPServer:
                         "type": "object",
                         "properties": {
                             "query": {"type": "string", "description": "Search query"},
-                            "section": {"type": "string", "description": "Documentation section to search within"},
                             "limit": {"type": "integer", "description": "Maximum number of results", "default": 10}
-                        },
-                        "required": ["query"]
-                    }
-                ),
-                Tool(
-                    name="get_documentation_section",
-                    description="Get specific documentation section content",
-                    inputSchema={
-                        "type": "object",
-                        "properties": {
-                            "section_path": {"type": "string", "description": "Path to documentation section"}
-                        },
-                        "required": ["section_path"]
-                    }
-                ),
-                Tool(
-                    name="list_documentation_topics",
-                    description="List available documentation topics and sections",
-                    inputSchema={"type": "object", "properties": {}}
-                ),
-                Tool(
-                    name="get_code_examples",
-                    description="Get code examples for specific use cases",
-                    inputSchema={
-                        "type": "object",
-                        "properties": {
-                            "topic": {"type": "string", "description": "Topic or API to get examples for"},
-                            "language": {"type": "string", "description": "Programming language preference"}
-                        },
-                        "required": ["topic"]
-                    }
-                )
-            ])
-            
-            # Schema Tools
-            tools.extend([
-                Tool(
-                    name="get_schema",
-                    description="Get JSON schema for BigCommerce data models",
-                    inputSchema={
-                        "type": "object",
-                        "properties": {
-                            "schema_name": {"type": "string", "description": "Name of the schema"}
-                        },
-                        "required": ["schema_name"]
-                    }
-                ),
-                Tool(
-                    name="search_schemas",
-                    description="Search for schemas by name or properties",
-                    inputSchema={
-                        "type": "object",
-                        "properties": {
-                            "query": {"type": "string", "description": "Search query for schemas"}
                         },
                         "required": ["query"]
                     }
@@ -292,87 +190,99 @@ class BigCommerceMCPServer:
         
         @self.server.call_tool()
         async def handle_call_tool(name: str, arguments: Dict[str, Any]) -> List[TextContent]:
-            """Handle tool calls"""
+            """Handle tool calls with performance optimization"""
+            start_time = time.time()
+            
             try:
-                if name == "search_api_endpoints":
+                # Quick lookup for common queries (bypasses heavy search)
+                if name == "quick_api_lookup":
+                    result = await self.quick_lookup.handle_query(**arguments)
+                
+                # API execution
+                elif name == "call_api":
+                    result = await self.api_tools.execute_api_call(**arguments)
+                
+                # Standard API tools
+                elif name == "search_api_endpoints":
+                    # Only load API specs if needed
+                    await self._ensure_api_specs_loaded()
                     result = await self.api_tools.search_endpoints(**arguments)
+                
                 elif name == "get_api_spec":
+                    # Load only the requested API spec
                     result = await self.api_tools.get_api_spec(**arguments)
+                
                 elif name == "get_endpoint_details":
                     result = await self.api_tools.get_endpoint_details(**arguments)
-                elif name == "list_api_categories":
-                    result = await self.api_tools.list_categories()
-                elif name == "recommend_api_for_use_case":
-                    result = await self.api_tools.recommend_api_for_use_case(**arguments)
-                elif name == "get_bulk_operation_guide":
-                    result = await self.api_tools.get_bulk_operation_guide(**arguments)
-                elif name == "optimize_pricing_across_channels":
-                    result = await self.api_tools.optimize_pricing_across_channels(**arguments)
-                elif name == "sync_inventory_strategy":
-                    result = await self.api_tools.sync_inventory_strategy(**arguments)
-                elif name == "handle_stockout_scenario":
-                    result = await self.api_tools.handle_stockout_scenario(**arguments)
-                elif name == "optimize_order_fulfillment":
-                    result = await self.api_tools.optimize_order_fulfillment(**arguments)
-                elif name == "search_documentation":
-                    result = await self.documentation_tools.search_documentation(**arguments)
-                elif name == "get_documentation_section":
-                    result = await self.documentation_tools.get_section(**arguments)
-                elif name == "list_documentation_topics":
-                    result = await self.documentation_tools.list_topics()
-                elif name == "get_code_examples":
-                    result = await self.documentation_tools.get_code_examples(**arguments)
-                elif name == "get_schema":
-                    result = await self.schema_tools.get_schema(**arguments)
-                elif name == "search_schemas":
-                    result = await self.schema_tools.search_schemas(**arguments)
+                
                 elif name == "build_http_request":
                     result = await self.api_tools.build_http_request(**arguments)
-                elif name == "generate_api_client":
-                    result = await self.api_tools.generate_api_client(**arguments)
+                
+                # Documentation tools
+                elif name == "search_documentation":
+                    await self._ensure_docs_loaded()
+                    result = await self.documentation_tools.search_documentation(**arguments)
+                
                 else:
                     raise ValueError(f"Unknown tool: {name}")
+                
+                elapsed = time.time() - start_time
+                logger.info(f"Tool {name} completed in {elapsed:.2f}s")
                 
                 return [TextContent(type="text", text=result)]
                 
             except Exception as e:
                 logger.error(f"Error handling tool call {name}: {e}")
-                return [TextContent(type="text", text=f"Error: {str(e)}")]
+                elapsed = time.time() - start_time
+                return [TextContent(type="text", text=f"Error: {str(e)} (took {elapsed:.2f}s)")]
+    
+    async def _ensure_api_specs_loaded(self):
+        """Lazy load API specifications only when needed"""
+        if not self._api_specs_loaded:
+            logger.info("Loading API specifications on demand...")
+            
+            # Load only essential API specs first
+            essential_apis = ['inventory', 'catalog', 'orders', 'customers']
+            for api in essential_apis:
+                await self.openapi_parser.load_spec(api)
+            
+            # Build initial index
+            await self.search_indexer.build_api_index(self.openapi_parser.specs)
+            self._api_specs_loaded = True
+    
+    async def _ensure_docs_loaded(self):
+        """Lazy load documentation only when needed"""
+        if not self._docs_loaded:
+            logger.info("Loading documentation on demand...")
+            # Load docs progressively
+            await self.mdx_parser.load_essential_docs()
+            self._docs_loaded = True
     
     async def initialize(self):
-        """Initialize the server by loading and parsing all documentation"""
-        logger.info("Initializing BigCommerce MCP Server...")
+        """Minimal initialization - load only what's immediately needed"""
+        logger.info("Initializing BigCommerce MCP Server (Optimized)...")
         
-        # Load API specifications
-        logger.info("Loading API specifications...")
-        self.api_specs = await self.openapi_parser.load_all_specs()
-        logger.info(f"Loaded {len(self.api_specs)} API specifications")
+        # Load quick lookup patterns
+        await self.quick_lookup.initialize()
         
-        # Load documentation
-        logger.info("Loading documentation...")
-        self.documentation = await self.mdx_parser.load_all_docs()
-        logger.info(f"Loaded {len(self.documentation)} documentation files")
+        # Pre-cache common queries
+        await self._precache_common_queries()
         
-        # Load schemas
-        logger.info("Loading schemas...")
-        self.schemas = await self.schema_parser.load_all_schemas()
-        logger.info(f"Loaded {len(self.schemas)} schema files")
+        logger.info("Server initialization complete! (Minimal startup)")
+    
+    async def _precache_common_queries(self):
+        """Pre-cache responses for the most common queries"""
+        common_queries = [
+            "inventory single product",
+            "get product by id",
+            "update inventory",
+            "create order",
+            "list products",
+            "customer information"
+        ]
         
-        # Build search indexes
-        logger.info("Building search indexes...")
-        await self.search_indexer.build_indexes(
-            self.api_specs, 
-            self.documentation, 
-            self.schemas
-        )
-        
-        await self.content_indexer.build_content_index(
-            self.api_specs,
-            self.documentation,
-            self.schemas
-        )
-        
-        logger.info("Server initialization complete!")
+        for query in common_queries:
+            await self.quick_lookup.handle_query(query)
     
     async def run(self):
         """Run the MCP server"""
@@ -384,7 +294,7 @@ class BigCommerceMCPServer:
                 write_stream,
                 InitializationOptions(
                     server_name="bigcommerce-docs",
-                    server_version="1.0.0",
+                    server_version="2.0.0",
                     capabilities=self.server.get_capabilities(
                         notification_options=NotificationOptions(),
                         experimental_capabilities=None,
@@ -403,7 +313,7 @@ async def main():
     if len(sys.argv) > 1:
         docs_path = Path(sys.argv[1])
     
-    logger.info(f"Starting BigCommerce MCP Server with docs path: {docs_path}")
+    logger.info(f"Starting BigCommerce MCP Server (Optimized) with docs path: {docs_path}")
     
     server = BigCommerceMCPServer(docs_path)
     await server.run()
